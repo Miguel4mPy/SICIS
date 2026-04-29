@@ -1,0 +1,43 @@
+<div class="card-sicis">
+  <div class="card-sicis-header"><i class="bi bi-diagram-3 me-2"></i>Árbol Jerárquico de Depósitos</div>
+  <div class="card-sicis-body">
+    <div class="dep-tree" id="depTree">
+      <%
+        const central = depositos.filter(d => d.nivel === 1);
+        const zonas = depositos.filter(d => d.nivel === 2);
+        const sectores = depositos.filter(d => d.nivel === 3);
+      %>
+      <% for (const c of central) { %>
+      <div class="tree-node tree-n1">
+        <div class="tree-icon"><i class="bi bi-building-fill"></i></div>
+        <div class="tree-content">
+          <a href="/depositos/<%= c.id %>" class="tree-name link-sicis"><%= c.nombre %></a>
+          <div class="tree-meta"><code><%= c.codigo %></code> · <span class="nivel-badge nivel-1">Nivel 1</span></div>
+        </div>
+      </div>
+      <div class="tree-children">
+        <% for (const z of zonas.filter(z => z.deposito_padre_id === c.id)) { %>
+        <div class="tree-node tree-n2">
+          <div class="tree-icon"><i class="bi bi-building"></i></div>
+          <div class="tree-content">
+            <a href="/depositos/<%= z.id %>" class="tree-name link-sicis"><%= z.nombre %></a>
+            <div class="tree-meta"><code><%= z.codigo %></code> · <span class="nivel-badge nivel-2">Nivel 2</span></div>
+          </div>
+        </div>
+        <div class="tree-children">
+          <% for (const s of sectores.filter(s => s.deposito_padre_id === z.id)) { %>
+          <div class="tree-node tree-n3">
+            <div class="tree-icon"><i class="bi bi-geo-alt"></i></div>
+            <div class="tree-content">
+              <a href="/depositos/<%= s.id %>" class="tree-name link-sicis"><%= s.nombre %></a>
+              <div class="tree-meta"><code><%= s.codigo %></code> · <span class="nivel-badge nivel-3">Nivel 3</span></div>
+            </div>
+          </div>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</div>

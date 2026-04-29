@@ -1,0 +1,171 @@
+<% if (!print) { %>
+<div class="page-header d-print-none">
+  <div>
+    <h1 class="page-title"><i class="bi bi-file-earmark-text me-2"></i>Reporte de Movimientos</h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/reportes">Reportes</a></li>
+        <li class="breadcrumb-item active">Movimientos</li>
+      </ol>
+    </nav>
+  </div>
+  <a href="/reportes/movimientos?<%= querystring ? querystring + '&' : '' %>formato=imprimir" target="_blank" class="btn btn-outline-secondary">
+    <i class="bi bi-printer me-1"></i>Imprimir
+  </a>
+</div>
+
+<div class="card shadow-sm mb-4 d-print-none">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h6>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="/reportes/movimientos">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Fecha Desde</label>
+          <input type="date" class="form-control form-control-sm" name="fecha_desde" value="<%= filtros.fecha_desde || '' %>">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Fecha Hasta</label>
+          <input type="date" class="form-control form-control-sm" name="fecha_hasta" value="<%= filtros.fecha_hasta || '' %>">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-semibold">Semana</label>
+          <input type="number" class="form-control form-control-sm" name="semana" min="1" max="53" value="<%= filtros.semana || '' %>">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-semibold">Anio</label>
+          <input type="number" class="form-control form-control-sm" name="anio" min="2020" max="2099" value="<%= filtros.anio || new Date().getFullYear() %>">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small fw-semibold">Tipo</label>
+          <select class="form-select form-select-sm" name="tipo_mov">
+            <option value="">Todos</option>
+            <% ['interno','espacial','focal','residual','larvicida'].forEach(t => { %>
+            <option value="<%= t %>" <%= filtros.tipo_mov === t ? 'selected' : '' %>><%= tipoMovimientoLabel(t) %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Deposito</label>
+          <select class="form-select form-select-sm" name="deposito_id">
+            <option value="">Todos</option>
+            <% depositos.forEach(d => { %>
+            <option value="<%= d.id %>" <%= filtros.deposito_id == d.id ? 'selected' : '' %>>[N<%= d.nivel %>] <%= d.codigo %> - <%= d.nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Insecticida</label>
+          <select class="form-select form-select-sm" name="insecticida_id">
+            <option value="">Todos</option>
+            <% insecticidas.forEach(i => { %>
+            <option value="<%= i.id %>" <%= filtros.insecticida_id == i.id ? 'selected' : '' %>><%= i.nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Lote</label>
+          <select class="form-select form-select-sm" name="lote_id">
+            <option value="">Todos</option>
+            <% lotes.forEach(l => { %>
+            <option value="<%= l.id %>" <%= filtros.lote_id == l.id ? 'selected' : '' %>><%= l.codigo_lote %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm px-4"><i class="bi bi-search me-1"></i>Generar</button>
+        <a href="/reportes/movimientos" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<div id="zonaImprimible">
+  <div class="reporte-membrete d-none d-print-block mb-4">
+    <div class="membrete-header">
+      <img src="/images/logo-mspbs.png" alt="MSPBS" class="membrete-logo">
+      <div class="membrete-info">
+        <div class="membrete-institucion">MINISTERIO DE SALUD PUBLICA Y BIENESTAR SOCIAL</div>
+        <div class="membrete-dependencia">SERVICIO NACIONAL DE ERRADICACION DEL PALUDISMO - SENEPA</div>
+        <div class="membrete-sistema">SICIS - Sistema Informatico de Control de Insecticida</div>
+      </div>
+      <img src="/images/logo-senepa.png" alt="SENEPA" class="membrete-logo">
+    </div>
+    <div class="membrete-titulo">REPORTE DE MOVIMIENTOS DE INSECTICIDAS</div>
+    <div class="membrete-subtitulo">
+      <%= filtros.fecha_desde ? `Desde ${formatearFecha(filtros.fecha_desde)}` : 'Todos los registros' %>
+      <%= filtros.fecha_hasta ? ` hasta ${formatearFecha(filtros.fecha_hasta)}` : '' %>
+    </div>
+    <div class="membrete-meta">
+      Generado por: <%= user ? `${user.nombre} ${user.apellido}` : '' %> |
+      Fecha: <%= new Date().toLocaleString('es-PY') %> |
+      Total registros: <%= movimientos.length %>
+    </div>
+  </div>
+
+  <% if (!print) { %>
+  <div class="row g-3 mb-4 d-print-none">
+    <div class="col-sm-6 col-md-3">
+      <div class="stat-card" style="--card-color: var(--sicis-primary)">
+        <div class="stat-icon"><i class="bi bi-arrow-left-right"></i></div>
+        <div class="stat-value"><%= movimientos.length %></div>
+        <div class="stat-label">Total Movimientos</div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="stat-card" style="--card-color: var(--sicis-success)">
+        <div class="stat-icon"><i class="bi bi-droplet"></i></div>
+        <div class="stat-value"><%= movimientos.filter(m => m.tipo_movimiento === 'focal' || m.tipo_movimiento === 'espacial').length %></div>
+        <div class="stat-label">Operativos</div>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0 reporte-tabla">
+        <thead class="table-dark">
+          <tr>
+            <th>Nro. Movimiento</th>
+            <th>Fecha</th>
+            <th>SE</th>
+            <th>Tipo</th>
+            <th>Insecticida</th>
+            <th>Lote</th>
+            <th>Origen</th>
+            <th>Destino</th>
+            <th class="text-end">Cantidad</th>
+            <th>Responsable</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (movimientos.length === 0) { %>
+          <tr>
+            <td colspan="11" class="text-center py-5 text-muted">No hay movimientos para los filtros seleccionados</td>
+          </tr>
+          <% } %>
+          <% movimientos.forEach(m => { %>
+          <tr>
+            <td><code class="small"><%= m.numero_mov %></code></td>
+            <td class="text-nowrap"><%= formatearFecha(m.fecha_movimiento) %></td>
+            <td><span class="badge bg-secondary">SE<%= m.semana_epidemiologica %>/<%= m.anio_epidemiologico || '' %></span></td>
+            <td><span class="badge badge-tipo-mov-<%= m.tipo_movimiento %>"><%= tipoMovimientoLabel(m.tipo_movimiento) %></span></td>
+            <td><%= m.insecticida_nombre %></td>
+            <td><code class="small"><%= m.codigo_lote %></code></td>
+            <td class="small"><%= m.origen_nombre || '-' %></td>
+            <td class="small"><%= m.destino_nombre || '-' %></td>
+            <td class="text-end fw-semibold"><%= parseFloat(m.cantidad).toFixed(2) %> <%= m.unidad_medida || '' %></td>
+            <td class="small"><%= m.usuario_nombre || '-' %></td>
+            <td><span class="badge bg-<%= m.estado === 'confirmado' ? 'success' : 'warning' %>"><%= m.estado %></span></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,147 @@
+<div class="dashboard-grid">
+
+  <!-- Stats Row -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="stat-card stat-blue">
+        <div class="stat-icon"><i class="bi bi-arrow-left-right"></i></div>
+        <div class="stat-body">
+          <div class="stat-value"><%= statsMovs.reduce((a, b) => a + parseInt(b.total), 0) %></div>
+          <div class="stat-label">Movimientos (30d)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card stat-green">
+        <div class="stat-icon"><i class="bi bi-building"></i></div>
+        <div class="stat-body">
+          <div class="stat-value"><%= statsDepositos.reduce((a, b) => a + parseInt(b.total), 0) %></div>
+          <div class="stat-label">Depósitos Activos</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card stat-orange">
+        <div class="stat-icon"><i class="bi bi-droplet-fill"></i></div>
+        <div class="stat-body">
+          <div class="stat-value"><%= statsStock.length %></div>
+          <div class="stat-label">Tipos en Stock</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card stat-red">
+        <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        <div class="stat-body">
+          <div class="stat-value"><%= lotesPorVencer.length %></div>
+          <div class="stat-label">Lotes por Vencer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock por tipo de insecticida -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-6">
+      <div class="card-sicis">
+        <div class="card-sicis-header">
+          <i class="bi bi-droplet-fill text-primary me-2"></i>Stock por Tipo de Insecticida
+        </div>
+        <div class="card-sicis-body">
+          <% const tiposStock = {focal:'Focal', espacial:'Espacial', residual:'Residual', larvicida:'Larvicida'}; %>
+          <% const coloresStock = {focal:'#e74c3c', espacial:'#3498db', residual:'#2ecc71', larvicida:'#f39c12'}; %>
+          <% if (statsStock.length === 0) { %>
+            <p class="text-muted text-center py-3">No hay stock registrado</p>
+          <% } else { %>
+            <% for (const s of statsStock) { %>
+            <div class="stock-type-item">
+              <div class="sti-label">
+                <span class="badge-tipo-uso badge-<%= s.tipo_uso %>"><%= tiposStock[s.tipo_uso] || s.tipo_uso %></span>
+              </div>
+              <div class="sti-bar">
+                <div class="sti-bar-fill" style="width: <%= Math.min(100, (s.total / Math.max(...statsStock.map(x => x.total))) * 100) %>%; background: <%= coloresStock[s.tipo_uso] || '#666' %>"></div>
+              </div>
+              <div class="sti-value"><%= parseFloat(s.total).toFixed(2) %></div>
+            </div>
+            <% } %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lotes por vencer -->
+    <div class="col-12 col-lg-6">
+      <div class="card-sicis">
+        <div class="card-sicis-header">
+          <i class="bi bi-clock-history text-warning me-2"></i>Lotes Próximos a Vencer
+          <a href="/lotes" class="ms-auto btn btn-xs btn-outline-secondary">Ver todos</a>
+        </div>
+        <div class="card-sicis-body p-0">
+          <% if (lotesPorVencer.length === 0) { %>
+            <p class="text-muted text-center py-3 px-3">No hay lotes próximos a vencer</p>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-sicis mb-0">
+              <thead><tr><th>Lote</th><th>Insecticida</th><th>Vencimiento</th><th>Stock</th></tr></thead>
+              <tbody>
+              <% for (const l of lotesPorVencer) { %>
+                <% const dias = Math.floor((new Date(l.fecha_vencimiento) - new Date()) / 86400000); %>
+                <tr>
+                  <td><code><%= l.codigo_lote %></code></td>
+                  <td><%= l.ins_nombre %></td>
+                  <td><span class="badge <%= dias < 30 ? 'bg-danger' : 'bg-warning text-dark' %>"><%= formatearFecha(l.fecha_vencimiento) %></span></td>
+                  <td><%= parseFloat(l.stock).toFixed(2) %></td>
+                </tr>
+              <% } %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movimientos recientes -->
+  <div class="card-sicis">
+    <div class="card-sicis-header">
+      <i class="bi bi-arrow-left-right me-2"></i>Últimos Movimientos
+      <a href="/movimientos" class="ms-auto btn btn-xs btn-outline-secondary">Ver todos</a>
+    </div>
+    <div class="card-sicis-body p-0">
+      <% if (movRecientes.length === 0) { %>
+        <p class="text-muted text-center py-4">No hay movimientos registrados</p>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table table-sicis mb-0">
+          <thead>
+            <tr><th>Número</th><th>Tipo</th><th>Insecticida</th><th>Origen</th><th>Destino</th><th>Cantidad</th><th>Fecha</th><th>Usuario</th></tr>
+          </thead>
+          <tbody>
+          <% for (const m of movRecientes) { %>
+            <tr>
+              <td><a href="/movimientos/<%= m.id %>" class="link-sicis"><code><%= m.numero_mov %></code></a></td>
+              <td><span class="badge-tipo-mov badge-mov-<%= m.tipo_movimiento %>"><%= tipoMovimientoLabel(m.tipo_movimiento) %></span></td>
+              <td><%= m.ins_nombre %></td>
+              <td class="text-truncate" style="max-width:120px"><%= m.origen || '—' %></td>
+              <td class="text-truncate" style="max-width:120px"><%= m.destino || '—' %></td>
+              <td><strong><%= parseFloat(m.cantidad).toFixed(2) %></strong> <small class="text-muted"><%= m.unidad_medida %></small></td>
+              <td><%= formatearFecha(m.fecha_movimiento) %></td>
+              <td class="text-truncate" style="max-width:100px"><small><%= m.usuario %></small></td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+  <a href="/movimientos/nuevo" class="qa-btn qa-primary" title="Nuevo Movimiento">
+    <i class="bi bi-plus-lg"></i>
+  </a>
+</div>

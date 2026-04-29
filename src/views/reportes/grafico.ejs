@@ -1,0 +1,113 @@
+<% if (typeof print === 'undefined' || !print) { %>
+<div class="page-header d-print-none">
+  <div>
+    <h1 class="page-title"><i class="bi bi-bar-chart-line-fill me-2"></i>Reportes Graficos</h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/reportes">Reportes</a></li>
+        <li class="breadcrumb-item active">Graficos</li>
+      </ol>
+    </nav>
+  </div>
+  <a href="/reportes/grafico?<%= querystring ? querystring + '&' : '' %>formato=imprimir" target="_blank" class="btn btn-outline-secondary">
+    <i class="bi bi-printer me-1"></i>Imprimir
+  </a>
+</div>
+
+<div class="card shadow-sm mb-4 d-print-none">
+  <div class="card-body py-3">
+    <form method="GET" action="/reportes/grafico" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Grafico</label>
+        <select class="form-select form-select-sm" name="tipo_grafico">
+          <option value="movimientos_por_tipo" <%= tipo_grafico === 'movimientos_por_tipo' ? 'selected' : '' %>>Movimientos por tipo</option>
+          <option value="stock_por_insecticida" <%= tipo_grafico === 'stock_por_insecticida' ? 'selected' : '' %>>Stock por insecticida</option>
+          <option value="movimientos_por_semana" <%= tipo_grafico === 'movimientos_por_semana' ? 'selected' : '' %>>Movimientos por semana</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Fecha Desde</label>
+        <input type="date" class="form-control form-control-sm" name="fecha_desde" value="<%= filtros.fecha_desde || '' %>">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Fecha Hasta</label>
+        <input type="date" class="form-control form-control-sm" name="fecha_hasta" value="<%= filtros.fecha_hasta || '' %>">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-semibold">Deposito</label>
+        <select class="form-select form-select-sm" name="deposito_id">
+          <option value="">Todos</option>
+          <% depositos.forEach(d => { %>
+          <option value="<%= d.id %>" <%= filtros.deposito_id == d.id ? 'selected' : '' %>>[N<%= d.nivel %>] <%= d.codigo %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small fw-semibold">Anio</label>
+        <select class="form-select form-select-sm" name="anio">
+          <% anios.forEach(a => { %>
+          <option value="<%= a %>" <%= filtros.anio == a ? 'selected' : '' %>><%= a %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-auto">
+        <button type="submit" class="btn btn-warning btn-sm px-4">
+          <i class="bi bi-graph-up me-1"></i>Actualizar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<div id="zonaImprimible">
+<div class="reporte-membrete d-none d-print-block mb-4">
+  <div class="membrete-header">
+    <img src="/images/logo-mspbs.png" alt="MSPBS" class="membrete-logo">
+    <div class="membrete-info">
+      <div class="membrete-institucion">MINISTERIO DE SALUD PUBLICA Y BIENESTAR SOCIAL</div>
+      <div class="membrete-dependencia">SERVICIO NACIONAL DE ERRADICACION DEL PALUDISMO - SENEPA</div>
+      <div class="membrete-sistema">SICIS - Sistema Informatico de Control de Insecticida</div>
+    </div>
+    <img src="/images/logo-senepa.png" alt="SENEPA" class="membrete-logo">
+  </div>
+  <div class="membrete-titulo">REPORTES GRAFICOS - ANALISIS DE INSECTICIDAS</div>
+  <div class="membrete-meta">
+    Generado por: <%= user ? `${user.nombre} ${user.apellido}` : '' %> |
+    Fecha: <%= new Date().toLocaleString('es-PY') %>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Resultado</h6>
+  </div>
+  <div class="card-body" style="min-height: 360px">
+    <canvas id="chartReporte" style="max-height: 320px"></canvas>
+    <div id="chartEmpty" class="text-center text-muted py-5 d-none">No hay datos para los filtros seleccionados.</div>
+  </div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const chartData = <%- chartData || '{"labels":[],"datasets":[]}' %>;
+const canvas = document.getElementById('chartReporte');
+const empty = document.getElementById('chartEmpty');
+
+if (!chartData.labels || chartData.labels.length === 0) {
+  canvas.classList.add('d-none');
+  empty.classList.remove('d-none');
+} else {
+  new Chart(canvas, {
+    type: '<%= tipo_grafico === 'movimientos_por_tipo' ? 'doughnut' : 'bar' %>',
+    data: chartData,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: '<%= tipo_grafico === 'movimientos_por_tipo' ? 'none' : 'linear' %>' === 'none' ? {} : { y: { beginAtZero: true } }
+    }
+  });
+}
+</script>

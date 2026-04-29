@@ -1,0 +1,37 @@
+<% if (errors && errors.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= errors[0] %></div>
+<% } %>
+<% if (success && success.length) { %>
+<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i><%= success[0] %></div>
+<% } %>
+
+<div class="otp-info">
+  <div class="otp-icon-wrap"><i class="bi bi-envelope-check-fill"></i></div>
+  <p>Se ha enviado un código de 6 dígitos a:</p>
+  <strong><%= email %></strong>
+</div>
+
+<form method="POST" action="/auth/verificar-otp" class="auth-form">
+  <div class="mb-4">
+    <label class="form-label text-center d-block">Código de Verificación</label>
+    <input type="text" name="otp" class="form-control otp-input text-center"
+      placeholder="000000" maxlength="6" pattern="\d{6}" inputmode="numeric"
+      autocomplete="one-time-code" autofocus required>
+    <div class="form-text text-center mt-2">
+      <i class="bi bi-clock me-1"></i>Código válido por <strong>10 minutos</strong>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary w-100 btn-lg">
+    <i class="bi bi-shield-check me-2"></i>Verificar Código
+  </button>
+</form>
+
+<div class="auth-links mt-3">
+  <form method="POST" action="/auth/reenviar-otp" style="display:inline">
+    <button type="submit" class="btn btn-link p-0">
+      <i class="bi bi-arrow-clockwise me-1"></i>Reenviar código
+    </button>
+  </form>
+  &nbsp;|&nbsp;
+  <a href="/auth/login"><i class="bi bi-arrow-left me-1"></i>Volver al login</a>
+</div>

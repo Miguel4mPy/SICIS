@@ -1,0 +1,98 @@
+<div class="d-flex gap-2 mb-3">
+  <a href="/depositos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+  <% if (userRol === 'admin') { %>
+  <a href="/depositos/<%= deposito.id %>/editar" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+  <% } %>
+  <a href="/reportes/stock?deposito_id=<%= deposito.id %>" class="btn btn-outline-primary btn-sm"><i class="bi bi-clipboard-data me-1"></i>Reporte Stock</a>
+</div>
+
+<div class="row g-3">
+  <!-- Info -->
+  <div class="col-lg-4">
+    <div class="card-sicis">
+      <div class="card-sicis-header"><i class="bi bi-building me-2"></i>Información</div>
+      <div class="card-sicis-body">
+        <div class="detail-group"><div class="detail-label">Código</div><div class="detail-value"><code><%= deposito.codigo %></code></div></div>
+        <div class="detail-group"><div class="detail-label">Tipo</div><div class="detail-value"><span class="badge-nivel-<%= deposito.nivel %>"><%= tipoDepositoLabel(deposito.tipo) %></span></div></div>
+        <div class="detail-group"><div class="detail-label">Nivel Jerárquico</div><div class="detail-value"><span class="nivel-badge nivel-<%= deposito.nivel %>">Nivel <%= deposito.nivel %></span></div></div>
+        <div class="detail-group"><div class="detail-label">Depende de</div><div class="detail-value"><%= deposito.padre_nombre || 'Raíz del sistema' %></div></div>
+        <div class="detail-group"><div class="detail-label">Departamento</div><div class="detail-value"><%= deposito.departamento || '—' %></div></div>
+        <div class="detail-group"><div class="detail-label">Zona</div><div class="detail-value"><%= deposito.zona || '—' %></div></div>
+        <div class="detail-group"><div class="detail-label">Responsable</div><div class="detail-value"><%= deposito.responsable_nombre || '—' %></div></div>
+        <div class="detail-group"><div class="detail-label">Estado</div><div class="detail-value"><span class="badge <%= deposito.activo ? 'bg-success' : 'bg-secondary' %>"><%= deposito.activo ? 'Activo' : 'Inactivo' %></span></div></div>
+      </div>
+    </div>
+
+    <% if (hijos.length > 0) { %>
+    <div class="card-sicis mt-3">
+      <div class="card-sicis-header"><i class="bi bi-diagram-2 me-2"></i>Depósitos Dependientes</div>
+      <div class="card-sicis-body p-0">
+        <% for (const h of hijos) { %>
+        <a href="/depositos/<%= h.id %>" class="dep-hijo-item">
+          <span class="nivel-badge nivel-<%= h.nivel %>">N<%= h.nivel %></span>
+          <span class="flex-grow-1"><%= h.nombre %></span>
+          <i class="bi bi-chevron-right text-muted"></i>
+        </a>
+        <% } %>
+      </div>
+    </div>
+    <% } %>
+  </div>
+
+  <!-- Stock -->
+  <div class="col-lg-8">
+    <div class="card-sicis mb-3">
+      <div class="card-sicis-header"><i class="bi bi-boxes me-2"></i>Stock Actual por Lote</div>
+      <div class="card-sicis-body p-0">
+        <% if (stock.length === 0) { %>
+          <p class="text-muted text-center py-4">Sin stock registrado en este depósito</p>
+        <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sicis mb-0">
+            <thead><tr><th>Insecticida</th><th>Tipo Uso</th><th>Lote</th><th>Vencimiento</th><th>Cantidad</th></tr></thead>
+            <tbody>
+            <% for (const s of stock) { %>
+              <% const dias = Math.floor((new Date(s.fecha_vencimiento) - new Date()) / 86400000); %>
+              <tr>
+                <td><strong><%= s.insecticida_nombre %></strong></td>
+                <td><span class="badge-tipo-uso badge-<%= s.tipo_uso %>"><%= s.tipo_uso %></span></td>
+                <td><code><%= s.codigo_lote %></code></td>
+                <td><span class="badge <%= dias < 30 ? 'bg-danger' : dias < 90 ? 'bg-warning text-dark' : 'bg-success' %>"><%= formatearFecha(s.fecha_vencimiento) %></span></td>
+                <td><strong><%= parseFloat(s.cantidad).toFixed(3) %></strong> <small class="text-muted"><%= s.unidad_medida %></small></td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="card-sicis">
+      <div class="card-sicis-header"><i class="bi bi-clock-history me-2"></i>Últimos Movimientos</div>
+      <div class="card-sicis-body p-0">
+        <% if (movimientos.length === 0) { %>
+          <p class="text-muted text-center py-3">Sin movimientos registrados</p>
+        <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sicis mb-0">
+            <thead><tr><th>N°</th><th>Fecha</th><th>Tipo</th><th>Ins.</th><th>Cant.</th><th>Origen→Destino</th></tr></thead>
+            <tbody>
+            <% for (const m of movimientos) { %>
+              <tr>
+                <td><a href="/movimientos/<%= m.id %>" class="link-sicis"><small><code><%= m.numero_mov %></code></small></a></td>
+                <td><small><%= formatearFecha(m.fecha_movimiento) %></small></td>
+                <td><span class="badge-tipo-mov badge-mov-<%= m.tipo_movimiento %>" style="font-size:10px"><%= tipoMovimientoLabel(m.tipo_movimiento) %></span></td>
+                <td><small><%= m.insecticida_nombre %></small></td>
+                <td><strong><%= parseFloat(m.cantidad).toFixed(2) %></strong></td>
+                <td class="text-truncate" style="max-width:180px"><small class="text-muted"><%= m.origen_nombre || '—' %> → <%= m.destino_nombre || '—' %></small></td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

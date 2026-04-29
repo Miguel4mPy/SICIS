@@ -1,0 +1,43 @@
+<% if (errors && errors.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= errors[0] %></div>
+<% } %>
+<% if (success && success.length) { %>
+<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i><%= success[0] %></div>
+<% } %>
+
+<form method="POST" action="/auth/login" class="auth-form">
+  <div class="mb-3">
+    <label class="form-label">Correo Electronico</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
+      <input type="email" name="email" class="form-control" placeholder="usuario@senepa.gov.py" required autocomplete="email">
+    </div>
+  </div>
+  <div class="mb-4">
+    <label class="form-label">Contrasena</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+      <input type="password" name="password" id="password" class="form-control" placeholder="********" required autocomplete="current-password">
+      <button type="button" class="input-group-text toggle-pass" onclick="togglePassword()"><i class="bi bi-eye" id="eyeIcon"></i></button>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary w-100 btn-lg">
+    <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar al Sistema
+  </button>
+</form>
+<div class="auth-links">
+  <a href="/auth/forgot-password"><i class="bi bi-question-circle me-1"></i>Olvido su contrasena?</a>
+</div>
+<div class="auth-security-note">
+  <i class="bi bi-shield-check me-1"></i>
+  Acceso protegido con contrasena verificada por correo
+</div>
+
+<script>
+function togglePassword() {
+  const p = document.getElementById('password');
+  const i = document.getElementById('eyeIcon');
+  p.type = p.type === 'password' ? 'text' : 'password';
+  i.className = p.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+</script>

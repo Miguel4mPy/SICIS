@@ -1,0 +1,145 @@
+<div class="row justify-content-center">
+<div class="col-xl-8">
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/movimientos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+  <a href="#" onclick="window.print()" class="btn btn-outline-primary btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</a>
+  <% if (movimiento.estado !== 'anulado' && (userRol === 'admin' || userRol === 'gerente')) { %>
+  <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#anularModal">
+    <i class="bi bi-x-circle me-1"></i>Anular
+  </button>
+  <% } %>
+</div>
+
+<div class="card-sicis">
+  <div class="card-sicis-header">
+    <i class="bi bi-file-text me-2"></i>
+    Movimiento: <code><%= movimiento.numero_mov %></code>
+    <span class="ms-2 badge bg-<%= movimiento.estado === 'confirmado' ? 'success' : movimiento.estado === 'anulado' ? 'danger' : 'warning' %>"><%= movimiento.estado.toUpperCase() %></span>
+  </div>
+  <div class="card-sicis-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Tipo de Movimiento</div>
+          <div class="detail-value">
+            <span class="badge-tipo-mov badge-mov-<%= movimiento.tipo_movimiento %>"><%= tipoMovimientoLabel(movimiento.tipo_movimiento) %></span>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Categoría</div>
+          <div class="detail-value"><span class="badge bg-secondary"><%= movimiento.categoria.toUpperCase() %></span></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Insecticida</div>
+          <div class="detail-value"><strong><%= movimiento.insecticida_nombre %></strong></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Código de Lote</div>
+          <div class="detail-value"><code><%= movimiento.codigo_lote %></code> <small class="text-muted">— Vence: <%= formatearFecha(movimiento.fecha_vencimiento) %></small></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Depósito Origen</div>
+          <div class="detail-value"><%= movimiento.origen_nombre || '—' %> <% if (movimiento.origen_codigo) { %><small class="text-muted">(<%= movimiento.origen_codigo %>)</small><% } %></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Depósito Destino</div>
+          <div class="detail-value"><%= movimiento.destino_nombre || '—' %> <% if (movimiento.destino_codigo) { %><small class="text-muted">(<%= movimiento.destino_codigo %>)</small><% } %></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="detail-group">
+          <div class="detail-label">Cantidad</div>
+          <div class="detail-value fs-4 fw-bold"><%= parseFloat(movimiento.cantidad).toFixed(3) %> <small class="text-muted fs-6"><%= movimiento.unidad_medida %></small></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="detail-group">
+          <div class="detail-label">Fecha de Movimiento</div>
+          <div class="detail-value"><%= formatearFecha(movimiento.fecha_movimiento) %></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="detail-group">
+          <div class="detail-label">Semana Epidemiológica</div>
+          <div class="detail-value">SE <strong><%= movimiento.semana_epidemiologica %></strong> — <strong><%= movimiento.año_epidemiologico %></strong></div>
+        </div>
+      </div>
+      <% if (movimiento.descripcion) { %>
+      <div class="col-12">
+        <div class="detail-group">
+          <div class="detail-label">Descripción</div>
+          <div class="detail-value"><%= movimiento.descripcion %></div>
+        </div>
+      </div>
+      <% } %>
+      <% if (movimiento.observaciones) { %>
+      <div class="col-12">
+        <div class="detail-group">
+          <div class="detail-label">Observaciones</div>
+          <div class="detail-value"><%= movimiento.observaciones %></div>
+        </div>
+      </div>
+      <% } %>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Registrado por</div>
+          <div class="detail-value"><%= movimiento.usuario_nombre %> <small class="text-muted">(<%= movimiento.usuario_email %>)</small></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Fecha de Registro</div>
+          <div class="detail-value"><%= movimiento.created_at ? new Date(movimiento.created_at).toLocaleString('es-PY') : '—' %></div>
+        </div>
+      </div>
+      <% if (movimiento.estado === 'anulado' && movimiento.motivo_anulacion) { %>
+      <div class="col-12">
+        <div class="alert alert-danger">
+          <strong><i class="bi bi-x-circle me-2"></i>Movimiento Anulado</strong><br>
+          Motivo: <%= movimiento.motivo_anulacion %>
+        </div>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<!-- Modal Anular -->
+<div class="modal fade" id="anularModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header border-danger">
+        <h5 class="modal-title text-danger"><i class="bi bi-x-circle me-2"></i>Anular Movimiento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/movimientos/<%= movimiento.id %>/anular">
+        <div class="modal-body">
+          <p>¿Está seguro que desea anular el movimiento <strong><%= movimiento.numero_mov %></strong>?</p>
+          <p class="text-warning"><small><i class="bi bi-exclamation-triangle me-1"></i>Esta acción revertirá el stock automáticamente.</small></p>
+          <div class="mb-3">
+            <label class="form-label required">Motivo de Anulación</label>
+            <textarea name="motivo_anulacion" class="form-control" rows="3" required placeholder="Indique el motivo..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">Confirmar Anulación</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

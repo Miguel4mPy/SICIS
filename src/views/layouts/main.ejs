@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> — SICIS</title>
+  <link rel="icon" href="/images/favicon.ico">
+  <link rel="apple-touch-icon" href="/images/favicon_io/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="/css/sicis.css" rel="stylesheet">
+</head>
+<body class="app-body">
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">
+      <div class="sl-icon"><i class="bi bi-shield-fill-check"></i></div>
+      <div class="sl-text">
+        <span class="sl-name">SICIS</span>
+        <span class="sl-sub">SENEPA</span>
+      </div>
+    </div>
+    <button class="sidebar-close d-lg-none" id="sidebarClose"><i class="bi bi-x-lg"></i></button>
+  </div>
+
+  <% if (user) { %>
+  <div class="sidebar-user">
+    <div class="su-avatar"><%= user.nombre.charAt(0) %><%= user.apellido.charAt(0) %></div>
+    <div class="su-info">
+      <div class="su-name"><%= user.nombre %> <%= user.apellido %></div>
+      <div class="su-role badge-rol-<%= user.rol %>"><i class="bi bi-person-fill-gear me-1"></i><%= user.rol.toUpperCase() %></div>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Principal</div>
+    <a href="/dashboard" class="nav-item <%= currentPath === '/dashboard' ? 'active' : '' %>">
+      <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+    </a>
+    <a href="/movimientos" class="nav-item <%= currentPath.startsWith('/movimientos') ? 'active' : '' %>">
+      <i class="bi bi-arrow-left-right"></i><span>Movimientos</span>
+    </a>
+    <a href="/depositos" class="nav-item <%= currentPath.startsWith('/depositos') ? 'active' : '' %>">
+      <i class="bi bi-building"></i><span>Depósitos</span>
+    </a>
+    <a href="/insecticidas" class="nav-item <%= currentPath.startsWith('/insecticidas') ? 'active' : '' %>">
+      <i class="bi bi-droplet-fill"></i><span>Insecticidas</span>
+    </a>
+    <a href="/lotes" class="nav-item <%= currentPath.startsWith('/lotes') ? 'active' : '' %>">
+      <i class="bi bi-box-seam"></i><span>Lotes</span>
+    </a>
+
+    <div class="nav-section-label mt-2">Reportes</div>
+    <a href="/reportes" class="nav-item <%= currentPath === '/reportes' ? 'active' : '' %>">
+      <i class="bi bi-file-earmark-text"></i><span>Reportes</span>
+    </a>
+    <a href="/reportes/movimientos" class="nav-item <%= currentPath === '/reportes/movimientos' ? 'active' : '' %>">
+      <i class="bi bi-journal-text"></i><span>Mov. Detallado</span>
+    </a>
+    <a href="/reportes/stock" class="nav-item <%= currentPath === '/reportes/stock' ? 'active' : '' %>">
+      <i class="bi bi-clipboard-data"></i><span>Stock</span>
+    </a>
+    <% if (userRol && (userRol === 'admin' || userRol === 'gerente')) { %>
+    <a href="/reportes/grafico" class="nav-item <%= currentPath === '/reportes/grafico' ? 'active' : '' %>">
+      <i class="bi bi-bar-chart-fill"></i><span>Gráficos</span>
+    </a>
+    <% } %>
+
+    <% if (userRol === 'admin') { %>
+    <div class="nav-section-label mt-2">Administración</div>
+    <a href="/usuarios" class="nav-item <%= currentPath.startsWith('/usuarios') ? 'active' : '' %>">
+      <i class="bi bi-people-fill"></i><span>Usuarios</span>
+    </a>
+    <% } %>
+  </div>
+
+  <div class="sidebar-footer">
+    <a href="/perfil" class="nav-item <%= currentPath === '/perfil' ? 'active' : '' %>">
+      <i class="bi bi-person-circle"></i><span>Mi Perfil</span>
+    </a>
+    <a href="/auth/logout" class="nav-item logout-item">
+      <i class="bi bi-box-arrow-left"></i><span>Cerrar Sesión</span>
+    </a>
+  </div>
+</nav>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <header class="top-header">
+    <button class="hamburger" id="sidebarToggle"><i class="bi bi-list"></i></button>
+    <div class="header-title">
+      <h1 class="page-title"><%= title %></h1>
+    </div>
+    <div class="header-actions">
+      <div class="header-date">
+        <i class="bi bi-calendar3 me-1"></i>
+        <span id="currentDate"></span>
+      </div>
+      <% if (userRol !== 'gerente') { %>
+      <a href="/movimientos/nuevo" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nuevo Mov.
+      </a>
+      <% } %>
+    </div>
+  </header>
+
+  <main class="content-area">
+    <% if (flash && flash.success && flash.success.length) { %>
+    <div class="alert alert-success alert-dismissible fade show alert-top" role="alert">
+      <i class="bi bi-check-circle-fill me-2"></i><%= flash.success[0] %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <% } %>
+    <% if (flash && flash.error && flash.error.length) { %>
+    <div class="alert alert-danger alert-dismissible fade show alert-top" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i><%= flash.error[0] %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <% } %>
+
+    <%- body %>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/sicis.js"></script>
+</body>
+</html>

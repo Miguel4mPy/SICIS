@@ -1,0 +1,116 @@
+<div class="page-actions mb-3">
+  <a href="/movimientos/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Movimiento</a>
+  <a href="/reportes/movimientos" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-text me-1"></i>Reporte</a>
+</div>
+
+<!-- Filtros -->
+<div class="card-sicis mb-3">
+  <div class="card-sicis-header" data-bs-toggle="collapse" data-bs-target="#filtros" style="cursor:pointer">
+    <i class="bi bi-funnel me-2"></i>Filtros
+    <i class="bi bi-chevron-down ms-auto"></i>
+  </div>
+  <div class="collapse" id="filtros">
+    <div class="card-sicis-body">
+      <form method="GET" action="/movimientos" class="row g-2">
+        <div class="col-md-3"><label class="form-label">Fecha Desde</label>
+          <input type="date" name="fecha_desde" class="form-control form-control-sm" value="<%= filtros.fecha_desde || '' %>">
+        </div>
+        <div class="col-md-3"><label class="form-label">Fecha Hasta</label>
+          <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="<%= filtros.fecha_hasta || '' %>">
+        </div>
+        <div class="col-md-3"><label class="form-label">Tipo</label>
+          <select name="tipo" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            <% for (const t of ['interno','espacial','focal','residual','larvicida']) { %>
+            <option value="<%= t %>" <%= filtros.tipo === t ? 'selected' : '' %>><%= tipoMovimientoLabel(t) %></option>
+            <% } %>
+          </select>
+        </div>
+        <div class="col-md-3"><label class="form-label">Depósito</label>
+          <select name="deposito_id" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            <% for (const d of depositos) { %>
+            <option value="<%= d.id %>" <%= filtros.deposito_id == d.id ? 'selected' : '' %>><%= d.nombre %></option>
+            <% } %>
+          </select>
+        </div>
+        <div class="col-md-4"><label class="form-label">Insecticida</label>
+          <select name="insecticida_id" class="form-select form-select-sm">
+            <option value="">Todos</option>
+            <% for (const i of insecticidas) { %>
+            <option value="<%= i.id %>" <%= filtros.insecticida_id == i.id ? 'selected' : '' %>><%= i.nombre %></option>
+            <% } %>
+          </select>
+        </div>
+        <div class="col-md-8 d-flex align-items-end gap-2">
+          <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i>Filtrar</button>
+          <a href="/movimientos" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card-sicis">
+  <div class="card-sicis-header">
+    <i class="bi bi-arrow-left-right me-2"></i>
+    Movimientos (<%= total %> registros)
+  </div>
+  <div class="card-sicis-body p-0">
+    <% if (movimientos.length === 0) { %>
+      <p class="text-muted text-center py-4">No se encontraron movimientos con los filtros aplicados.</p>
+    <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sicis mb-0">
+        <thead>
+          <tr>
+            <th>N° Movimiento</th>
+            <th>Fecha</th>
+            <th>SE</th>
+            <th>Tipo</th>
+            <th>Insecticida</th>
+            <th>Lote</th>
+            <th>Origen</th>
+            <th>Destino</th>
+            <th>Cantidad</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        <% for (const m of movimientos) { %>
+          <tr class="<%= m.estado === 'anulado' ? 'row-anulado' : '' %>">
+            <td><a href="/movimientos/<%= m.id %>" class="link-sicis"><code><%= m.numero_mov %></code></a></td>
+            <td><%= formatearFecha(m.fecha_movimiento) %></td>
+            <td><span class="badge bg-secondary">SE<%= m.semana_epidemiologica %></span></td>
+            <td><span class="badge-tipo-mov badge-mov-<%= m.tipo_movimiento %>"><%= tipoMovimientoLabel(m.tipo_movimiento) %></span></td>
+            <td><%= m.insecticida_nombre %></td>
+            <td><code><small><%= m.codigo_lote %></small></code></td>
+            <td class="text-truncate" style="max-width:130px" title="<%= m.origen_nombre || '' %>"><%= m.origen_nombre || '—' %></td>
+            <td class="text-truncate" style="max-width:130px" title="<%= m.destino_nombre || '' %>"><%= m.destino_nombre || '—' %></td>
+            <td><strong><%= parseFloat(m.cantidad).toFixed(2) %></strong> <small class="text-muted"><%= m.unidad_medida %></small></td>
+            <td><span class="badge bg-<%= m.estado === 'confirmado' ? 'success' : m.estado === 'anulado' ? 'danger' : 'warning' %>"><%= m.estado %></span></td>
+            <td><a href="/movimientos/<%= m.id %>" class="btn btn-xs btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <% if (pages > 1) { %>
+    <div class="d-flex justify-content-center py-3">
+      <nav>
+        <ul class="pagination pagination-sm">
+          <% for (let p = 1; p <= pages; p++) { %>
+          <li class="page-item <%= p === page ? 'active' : '' %>">
+            <a class="page-link" href="?page=<%= p %>&fecha_desde=<%= filtros.fecha_desde||'' %>&fecha_hasta=<%= filtros.fecha_hasta||'' %>&tipo=<%= filtros.tipo||'' %>&deposito_id=<%= filtros.deposito_id||'' %>&insecticida_id=<%= filtros.insecticida_id||'' %>"><%= p %></a>
+          </li>
+          <% } %>
+        </ul>
+      </nav>
+    </div>
+    <% } %>
+    <% } %>
+  </div>
+</div>

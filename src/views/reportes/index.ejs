@@ -1,0 +1,95 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-file-earmark-bar-graph-fill me-2"></i>Reportes</h1>
+    <p class="text-muted mb-0">Generacion de reportes de movimientos y saldos de stock</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6 col-xl-4">
+    <div class="card shadow-sm h-100 card-hover">
+      <div class="card-body p-4">
+        <div class="reporte-icon mb-3" style="background: var(--sicis-primary)20; color: var(--sicis-primary);">
+          <i class="bi bi-arrow-left-right"></i>
+        </div>
+        <h5 class="card-title">Reporte de Movimientos</h5>
+        <p class="card-text text-muted small">Detalle de entradas, salidas y transferencias de insecticidas entre depositos.</p>
+      </div>
+      <div class="card-footer bg-white border-0 pb-4 px-4">
+        <a href="/reportes/movimientos" class="btn btn-primary w-100">
+          <i class="bi bi-file-earmark-text me-2"></i>Generar Reporte
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-xl-4">
+    <div class="card shadow-sm h-100 card-hover">
+      <div class="card-body p-4">
+        <div class="reporte-icon mb-3" style="background: var(--sicis-success)20; color: var(--sicis-success);">
+          <i class="bi bi-boxes"></i>
+        </div>
+        <h5 class="card-title">Reporte de Stock Actual</h5>
+        <p class="card-text text-muted small">Saldo actual de insecticidas por deposito, lote y fecha de vencimiento.</p>
+      </div>
+      <div class="card-footer bg-white border-0 pb-4 px-4">
+        <a href="/reportes/stock" class="btn btn-success w-100">
+          <i class="bi bi-table me-2"></i>Ver Stock
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <% if (userRol === 'admin' || userRol === 'gerente') { %>
+  <div class="col-md-6 col-xl-4">
+    <div class="card shadow-sm h-100 card-hover">
+      <div class="card-body p-4">
+        <div class="reporte-icon mb-3" style="background: var(--sicis-warning)20; color: var(--sicis-warning);">
+          <i class="bi bi-bar-chart-line-fill"></i>
+        </div>
+        <h5 class="card-title">Reportes Graficos</h5>
+        <p class="card-text text-muted small">Visualizacion grafica de movimientos, stock y tendencias epidemiologicas.</p>
+      </div>
+      <div class="card-footer bg-white border-0 pb-4 px-4">
+        <a href="/reportes/grafico" class="btn btn-warning w-100">
+          <i class="bi bi-bar-chart me-2"></i>Ver Graficos
+        </a>
+      </div>
+    </div>
+  </div>
+  <% } %>
+</div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-header bg-white py-3">
+    <h5 class="mb-0"><i class="bi bi-lightning-fill me-2 text-warning"></i>Accesos Rapidos</h5>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-sm-6 col-md-4 col-lg-3">
+        <a href="/reportes/movimientos?fecha_desde=<%= new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] %>&fecha_hasta=<%= new Date().toISOString().split('T')[0] %>" class="btn btn-outline-primary w-100 text-start">
+          <i class="bi bi-calendar-week me-2"></i>Ultimos 7 dias
+        </a>
+      </div>
+      <div class="col-sm-6 col-md-4 col-lg-3">
+        <a href="/reportes/stock" class="btn btn-outline-success w-100 text-start">
+          <i class="bi bi-check-circle me-2"></i>Stock disponible
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.reporte-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+}
+.card-hover { transition: transform .2s, box-shadow .2s; }
+.card-hover:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.12) !important; }
+</style>

@@ -1,0 +1,137 @@
+<% if (!print) { %>
+<div class="page-header d-print-none">
+  <div>
+    <h1 class="page-title"><i class="bi bi-boxes me-2"></i>Reporte de Stock Actual</h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/reportes">Reportes</a></li>
+        <li class="breadcrumb-item active">Stock</li>
+      </ol>
+    </nav>
+  </div>
+  <a href="/reportes/stock?<%= querystring ? querystring + '&' : '' %>formato=imprimir" target="_blank" class="btn btn-outline-secondary">
+    <i class="bi bi-printer me-1"></i>Imprimir
+  </a>
+</div>
+
+<div class="card shadow-sm mb-4 d-print-none">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h6>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="/reportes/stock">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Deposito</label>
+          <select class="form-select form-select-sm" name="deposito_id">
+            <option value="">Todos</option>
+            <% depositos.forEach(d => { %>
+            <option value="<%= d.id %>" <%= filtros.deposito_id == d.id ? 'selected' : '' %>>[N<%= d.nivel %>] <%= d.codigo %> - <%= d.nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Tipo de deposito</label>
+          <select class="form-select form-select-sm" name="tipo_deposito">
+            <option value="">Todos</option>
+            <% ['oficina_central','zona','sector'].forEach(t => { %>
+            <option value="<%= t %>" <%= filtros.tipo_deposito === t ? 'selected' : '' %>><%= tipoDepositoLabel(t) %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Insecticida</label>
+          <select class="form-select form-select-sm" name="insecticida_id">
+            <option value="">Todos</option>
+            <% insecticidas.forEach(i => { %>
+            <option value="<%= i.id %>" <%= filtros.insecticida_id == i.id ? 'selected' : '' %>><%= i.nombre %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="incluir_cero" value="true" id="incluirCero" <%= filtros.incluir_cero ? 'checked' : '' %>>
+            <label class="form-check-label small" for="incluirCero">Incluir cero</label>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-success btn-sm px-4"><i class="bi bi-table me-1"></i>Ver Stock</button>
+        <a href="/reportes/stock" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4 d-print-none">
+  <div class="col-sm-6 col-md-3">
+    <div class="stat-card" style="--card-color: var(--sicis-success)">
+      <div class="stat-icon"><i class="bi bi-boxes"></i></div>
+      <div class="stat-value"><%= stock.length %></div>
+      <div class="stat-label">Lotes con stock</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-md-3">
+    <div class="stat-card" style="--card-color: var(--sicis-primary)">
+      <div class="stat-icon"><i class="bi bi-droplet"></i></div>
+      <div class="stat-value"><%= stock.reduce((sum, s) => sum + parseFloat(s.cantidad || 0), 0).toFixed(0) %></div>
+      <div class="stat-label">Cantidad total</div>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<div id="zonaImprimible">
+<div class="reporte-membrete d-none d-print-block mb-4">
+  <div class="membrete-header">
+    <img src="/images/logo-mspbs.png" alt="MSPBS" class="membrete-logo">
+    <div class="membrete-info">
+      <div class="membrete-institucion">MINISTERIO DE SALUD PUBLICA Y BIENESTAR SOCIAL</div>
+      <div class="membrete-dependencia">SERVICIO NACIONAL DE ERRADICACION DEL PALUDISMO - SENEPA</div>
+      <div class="membrete-sistema">SICIS - Sistema Informatico de Control de Insecticida</div>
+    </div>
+    <img src="/images/logo-senepa.png" alt="SENEPA" class="membrete-logo">
+  </div>
+  <div class="membrete-titulo">REPORTE DE SALDOS DE STOCK DE INSECTICIDAS</div>
+  <div class="membrete-subtitulo">Al <%= new Date().toLocaleDateString('es-PY') %></div>
+  <div class="membrete-meta">
+    Generado por: <%= user ? `${user.nombre} ${user.apellido}` : '' %> |
+    Fecha: <%= new Date().toLocaleString('es-PY') %> |
+    Total registros: <%= stock.length %>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 reporte-tabla">
+      <thead class="table-light">
+        <tr>
+          <th>Deposito</th>
+          <th>Tipo</th>
+          <th>Insecticida</th>
+          <th>Lote</th>
+          <th>Vencimiento</th>
+          <th class="text-end">Stock</th>
+          <th>Actualizado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (stock.length === 0) { %>
+        <tr><td colspan="7" class="text-center py-5 text-muted">No hay stock para los filtros seleccionados</td></tr>
+        <% } %>
+        <% stock.forEach(s => { %>
+        <tr>
+          <td><span class="fw-semibold"><%= s.deposito_codigo || '' %></span> <%= s.deposito_nombre %></td>
+          <td><span class="badge badge-nivel-<%= s.nivel %>">N<%= s.nivel %></span> <%= tipoDepositoLabel(s.deposito_tipo) %></td>
+          <td><%= s.insecticida_nombre %></td>
+          <td><code><%= s.codigo_lote %></code></td>
+          <td><%= formatearFecha(s.fecha_vencimiento) %></td>
+          <td class="text-end fw-bold"><%= formatearCantidad(s.cantidad, s.unidad_medida) %></td>
+          <td><%= formatearFecha(s.updated_at) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>

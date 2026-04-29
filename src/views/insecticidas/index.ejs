@@ -1,0 +1,37 @@
+<div class="page-actions mb-3">
+  <% if (userRol === 'admin') { %>
+  <a href="/insecticidas/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Insecticida</a>
+  <% } %>
+  <a href="/lotes" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Ver Lotes</a>
+</div>
+<div class="card-sicis">
+  <div class="card-sicis-header"><i class="bi bi-droplet-fill me-2"></i>Catálogo de Insecticidas</div>
+  <div class="card-sicis-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sicis mb-0">
+        <thead><tr><th>Código</th><th>Nombre</th><th>Tipo de Uso</th><th>Unidad</th><th>Lotes</th><th>Stock Total</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+        <% for (const i of insecticidas) { %>
+          <tr>
+            <td><code><%= i.codigo %></code></td>
+            <td><a href="/insecticidas/<%= i.id %>" class="link-sicis fw-bold"><%= i.nombre %></a></td>
+            <td><span class="badge-tipo-uso badge-<%= i.tipo_uso %>"><%= i.tipo_uso %></span></td>
+            <td><span class="badge bg-light text-dark border"><%= i.unidad_medida %></span></td>
+            <td><%= i.total_lotes %></td>
+            <td><strong><%= parseFloat(i.stock_total || 0).toFixed(2) %></strong> <small class="text-muted"><%= i.unidad_medida %></small></td>
+            <td><span class="badge <%= i.activo ? 'bg-success' : 'bg-secondary' %>"><%= i.activo ? 'Activo' : 'Inactivo' %></span></td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <a href="/insecticidas/<%= i.id %>" class="btn btn-outline-primary"><i class="bi bi-eye"></i></a>
+                <% if (userRol === 'admin') { %>
+                <a href="/insecticidas/<%= i.id %>/editar" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

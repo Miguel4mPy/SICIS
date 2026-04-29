@@ -1,0 +1,185 @@
+<% const esEdicion = Boolean(usuario && usuario.id); %>
+<% const seleccionados = userDepIds || []; %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-person-<%= esEdicion ? 'gear' : 'plus' %>-fill me-2"></i><%= esEdicion ? 'Editar Usuario' : 'Nuevo Usuario' %>
+    </h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/usuarios">Usuarios</a></li>
+        <li class="breadcrumb-item active"><%= esEdicion ? `${usuario.nombre} ${usuario.apellido}` : 'Nuevo' %></li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<% if (errors && errors.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= errors[0] %></div>
+<% } %>
+
+<form method="POST" action="<%= esEdicion ? `/usuarios/${usuario.id}` : '/usuarios' %>">
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="bi bi-person me-2 text-primary"></i>Datos Personales</h5>
+        </div>
+        <div class="card-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="nombre" class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nombre" name="nombre" value="<%= usuario.nombre || '' %>" required maxlength="100">
+            </div>
+            <div class="col-md-6">
+              <label for="apellido" class="form-label fw-semibold">Apellido <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="apellido" name="apellido" value="<%= usuario.apellido || '' %>" required maxlength="100">
+            </div>
+            <div class="col-md-8">
+              <label for="email" class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                <input type="email" class="form-control" id="email" name="email" value="<%= usuario.email || '' %>" required maxlength="200">
+              </div>
+            </div>
+            <% if (!esEdicion) { %>
+            <div class="col-12">
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-envelope-check me-2"></i>
+                Al crear el usuario se enviara un enlace a su correo para verificarlo y definir su contrasena.
+              </div>
+            </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="bi bi-building me-2 text-primary"></i>Depositos Asignados</h5>
+        </div>
+        <div class="card-body p-4">
+          <p class="text-muted small mb-3">
+            Los operadores solo podran registrar movimientos y ver reportes de los depositos asignados.
+          </p>
+          <div class="mb-3">
+            <input type="text" class="form-control form-control-sm" id="buscarDeposito" placeholder="Filtrar depositos..." oninput="filtrarDepositos(this.value)">
+          </div>
+          <div id="listaDepositos" style="max-height: 320px; overflow-y: auto;">
+            <% depositos.forEach(d => { %>
+            <div class="deposito-item mb-2" data-nombre="<%= `${d.nombre} ${d.codigo}`.toLowerCase() %>">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="deposito_ids" value="<%= d.id %>" id="dep_<%= d.id %>" <%= seleccionados.includes(d.id) ? 'checked' : '' %>>
+                <label class="form-check-label d-flex align-items-center gap-2" for="dep_<%= d.id %>">
+                  <span class="badge badge-nivel-<%= d.nivel %> me-1">N<%= d.nivel %></span>
+                  <span class="fw-semibold"><%= d.codigo %></span>
+                  <span class="text-muted">- <%= d.nombre %></span>
+                </label>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleTodos(true)">
+              <i class="bi bi-check-all me-1"></i>Seleccionar todos
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleTodos(false)">
+              <i class="bi bi-x-circle me-1"></i>Deseleccionar todos
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>Rol y Acceso</h5>
+        </div>
+        <div class="card-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Rol <span class="text-danger">*</span></label>
+            <div class="d-flex flex-column gap-2">
+              <% ['admin', 'gerente', 'operador'].forEach(r => { %>
+              <div class="form-check card border p-3">
+                <input class="form-check-input" type="radio" name="rol" value="<%= r %>" id="rol_<%= r %>" <%= (usuario.rol === r || (!esEdicion && r === 'operador')) ? 'checked' : '' %> required>
+                <label class="form-check-label" for="rol_<%= r %>">
+                  <span class="fw-semibold d-block"><%= r.charAt(0).toUpperCase() + r.slice(1) %></span>
+                  <small class="text-muted">
+                    <%= r === 'admin' ? 'Administracion total del sistema' : r === 'gerente' ? 'Reportes y consultas globales' : 'Registro de movimientos asignados' %>
+                  </small>
+                </label>
+              </div>
+              <% }) %>
+            </div>
+          </div>
+
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="activo" name="activo" <%= (!esEdicion || usuario.activo) ? 'checked' : '' %>>
+            <label class="form-check-label" for="activo">
+              <span class="fw-semibold">Usuario activo</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <% if (esEdicion) { %>
+      <div class="card shadow-sm mb-4 border-0 bg-light">
+        <div class="card-body p-3">
+          <h6 class="fw-semibold mb-3"><i class="bi bi-clock-history me-2"></i>Informacion de Cuenta</h6>
+          <table class="table table-sm table-borderless mb-0 small">
+            <tr><td class="text-muted">Creado:</td><td><%= formatearFecha(usuario.created_at) %></td></tr>
+            <tr><td class="text-muted">Ultimo acceso:</td><td><%= usuario.ultimo_acceso ? formatearFecha(usuario.ultimo_acceso) : '-' %></td></tr>
+            <tr><td class="text-muted">Intentos fallidos:</td><td><%= usuario.intentos_fallidos || 0 %></td></tr>
+            <tr><td class="text-muted">Estado:</td><td><%= usuario.bloqueado ? 'Bloqueado' : 'Activo' %></td></tr>
+          </table>
+        </div>
+      </div>
+      <% } %>
+
+      <% if (esEdicion) { %>
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="bi bi-key me-2 text-primary"></i>Contrasena</h5>
+        </div>
+        <div class="card-body p-4">
+          <p class="text-muted small mb-3">
+            Envia un enlace al correo del usuario para que verifique su cuenta y defina una nueva contrasena.
+          </p>
+          <button type="submit" form="resetPasswordForm" class="btn btn-outline-primary w-100">
+            <i class="bi bi-envelope-check me-2"></i>Enviar enlace de restablecimiento
+          </button>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-circle-fill me-2"></i><%= esEdicion ? 'Guardar Cambios' : 'Crear Usuario' %>
+        </button>
+        <a href="/usuarios" class="btn btn-outline-secondary">
+          <i class="bi bi-x-circle me-1"></i>Cancelar
+        </a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<% if (esEdicion) { %>
+<form id="resetPasswordForm" method="POST" action="/usuarios/<%= usuario.id %>/reset-password"></form>
+<% } %>
+
+<script>
+function filtrarDepositos(valor) {
+  document.querySelectorAll('.deposito-item').forEach(el => {
+    el.style.display = el.dataset.nombre.includes(valor.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function toggleTodos(estado) {
+  document.querySelectorAll('input[name="deposito_ids"]').forEach(cb => {
+    cb.checked = estado;
+  });
+}
+</script>

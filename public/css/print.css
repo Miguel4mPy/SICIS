@@ -1,0 +1,70 @@
+@media print {
+  body.print-body {
+    background: #fff !important;
+    color: #111;
+    font-size: 11pt;
+    padding: 0;
+  }
+
+  .card,
+  .card.shadow-sm {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .table {
+    font-size: 9pt;
+  }
+
+  .reporte-membrete {
+    display: block !important;
+    border-color: #1a3a5c !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .membrete-header {
+    display: grid !important;
+    grid-template-columns: 170px minmax(0, 1fr) 170px !important;
+    align-items: center !important;
+    justify-items: center !important;
+    background: #fff !important;
+    color: #1a3a5c !important;
+    border-bottom: 2px solid #1a3a5c !important;
+    padding: .45rem .85rem !important;
+    gap: .65rem !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .membrete-logo {
+    display: block !important;
+    width: 160px !important;
+    height: 88px !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    filter: none !important;
+  }
+
+  .membrete-info {
+    width: 100% !important;
+    min-width: 0 !important;
+    text-align: center !important;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 1.2cm 1cm;
+  }
+}
+
+@media screen {
+  body.print-body {
+    background: #fff;
+    padding: 24px;
+  }
+
+  body.print-body .reporte-membrete {
+    display: block !important;
+  }
+}

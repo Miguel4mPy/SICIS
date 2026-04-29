@@ -1,0 +1,213 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-people-fill me-2"></i>Gestion de Usuarios</h1>
+    <p class="text-muted mb-0">Administracion de cuentas y permisos del sistema</p>
+  </div>
+  <a href="/usuarios/nuevo" class="btn btn-primary">
+    <i class="bi bi-person-plus-fill me-2"></i>Nuevo Usuario
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card" style="--card-color: var(--sicis-primary)">
+      <div class="stat-icon"><i class="bi bi-people"></i></div>
+      <div class="stat-value"><%= usuarios.length %></div>
+      <div class="stat-label">Total Usuarios</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card" style="--card-color: var(--sicis-success)">
+      <div class="stat-icon"><i class="bi bi-person-check"></i></div>
+      <div class="stat-value"><%= usuarios.filter(u => u.activo && !u.bloqueado).length %></div>
+      <div class="stat-label">Activos</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card" style="--card-color: var(--sicis-warning)">
+      <div class="stat-icon"><i class="bi bi-shield-lock"></i></div>
+      <div class="stat-value"><%= usuarios.filter(u => u.bloqueado).length %></div>
+      <div class="stat-label">Bloqueados</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card" style="--card-color: var(--sicis-info)">
+      <div class="stat-icon"><i class="bi bi-person-badge"></i></div>
+      <div class="stat-value"><%= usuarios.filter(u => u.rol === 'admin').length %></div>
+      <div class="stat-label">Administradores</div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body py-3">
+    <form method="GET" action="/usuarios" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <input type="text" class="form-control form-control-sm" name="buscar"
+          value="<%= buscar || '' %>" placeholder="Buscar por nombre o email...">
+      </div>
+      <div class="col-md-2">
+        <select class="form-select form-select-sm" name="rol">
+          <option value="">Todos los roles</option>
+          <option value="admin" <%= rol === 'admin' ? 'selected' : '' %>>Admin</option>
+          <option value="gerente" <%= rol === 'gerente' ? 'selected' : '' %>>Gerente</option>
+          <option value="operador" <%= rol === 'operador' ? 'selected' : '' %>>Operador</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select class="form-select form-select-sm" name="estado">
+          <option value="">Todos los estados</option>
+          <option value="activo" <%= estado === 'activo' ? 'selected' : '' %>>Activos</option>
+          <option value="bloqueado" <%= estado === 'bloqueado' ? 'selected' : '' %>>Bloqueados</option>
+          <option value="inactivo" <%= estado === 'inactivo' ? 'selected' : '' %>>Inactivos</option>
+        </select>
+      </div>
+      <div class="col-md-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm px-3">
+          <i class="bi bi-search me-1"></i>Filtrar
+        </button>
+        <a href="/usuarios" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-x-circle me-1"></i>Limpiar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Usuario</th>
+          <th>Rol</th>
+          <th>Depositos Asignados</th>
+          <th>Ultimo Acceso</th>
+          <th>Estado</th>
+          <th class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (usuarios.length === 0) { %>
+        <tr>
+          <td colspan="6" class="text-center py-5 text-muted">
+            <i class="bi bi-people display-4 d-block mb-2 opacity-25"></i>
+            No se encontraron usuarios
+          </td>
+        </tr>
+        <% } %>
+
+        <% usuarios.forEach(u => { %>
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-3">
+              <div class="avatar-circle avatar-<%= u.rol %>">
+                <%= (u.nombre || '?').charAt(0).toUpperCase() %><%= (u.apellido || '?').charAt(0).toUpperCase() %>
+              </div>
+              <div>
+                <div class="fw-semibold"><%= u.nombre %> <%= u.apellido %></div>
+                <small class="text-muted"><%= u.email %></small>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge badge-rol-<%= u.rol %>">
+              <i class="bi bi-<%= u.rol === 'admin' ? 'shield-fill' : u.rol === 'gerente' ? 'bar-chart-fill' : 'person-fill' %> me-1"></i>
+              <%= u.rol.charAt(0).toUpperCase() + u.rol.slice(1) %>
+            </span>
+          </td>
+          <td>
+            <% if (u.depositos && u.depositos.length > 0) { %>
+              <% u.depositos.slice(0, 2).forEach(d => { %>
+                <span class="badge bg-light text-dark border me-1 mb-1" title="<%= d.nombre %>"><%= d.codigo %></span>
+              <% }) %>
+              <% if (u.depositos.length > 2) { %>
+                <span class="badge bg-secondary">+<%= u.depositos.length - 2 %></span>
+              <% } %>
+            <% } else { %>
+              <span class="text-muted small">-</span>
+            <% } %>
+          </td>
+          <td>
+            <small class="text-muted">
+              <% if (u.ultimo_acceso) { %>
+                <%= new Date(u.ultimo_acceso).toLocaleDateString('es-PY', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+              <% } else { %>
+                Nunca
+              <% } %>
+            </small>
+          </td>
+          <td>
+            <% if (u.bloqueado) { %>
+              <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
+            <% } else if (u.activo) { %>
+              <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Activo</span>
+            <% } else { %>
+              <span class="badge bg-secondary">Inactivo</span>
+            <% } %>
+            <% if (u.intentos_fallidos > 0 && !u.bloqueado) { %>
+              <span class="badge bg-warning text-dark ms-1" title="<%= u.intentos_fallidos %> intento(s) fallido(s)">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+              </span>
+            <% } %>
+          </td>
+          <td class="text-end">
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-three-dots"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                  <a class="dropdown-item" href="/usuarios/<%= u.id %>/editar">
+                    <i class="bi bi-pencil me-2"></i>Editar
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="POST" action="/usuarios/<%= u.id %>/toggle-bloqueo" class="d-inline">
+                    <button type="submit" class="dropdown-item <%= u.bloqueado ? 'text-success' : 'text-warning' %>">
+                      <i class="bi bi-<%= u.bloqueado ? 'unlock' : 'lock' %> me-2"></i><%= u.bloqueado ? 'Desbloquear' : 'Bloquear' %>
+                    </button>
+                  </form>
+                </li>
+                <% if (u.id !== user.id) { %>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="POST" action="/usuarios/<%= u.id %>/eliminar" class="d-inline"
+                    onsubmit="return confirm('Desactivar al usuario <%= u.nombre %> <%= u.apellido %>?')">
+                    <button type="submit" class="dropdown-item text-danger">
+                      <i class="bi bi-trash me-2"></i>Desactivar
+                    </button>
+                  </form>
+                </li>
+                <% } %>
+              </ul>
+            </div>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: .9rem;
+  flex-shrink: 0;
+}
+
+.avatar-admin { background: #dc354520; color: #dc3545; }
+.avatar-gerente { background: #0dcaf020; color: #0a9bb5; }
+.avatar-operador { background: #19875420; color: #198754; }
+.badge-rol-admin { background: #dc354520; color: #dc3545; border: 1px solid #dc354540; }
+.badge-rol-gerente { background: #0dcaf020; color: #0a9bb5; border: 1px solid #0dcaf040; }
+.badge-rol-operador { background: #19875420; color: #198754; border: 1px solid #19875440; }
+</style>

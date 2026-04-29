@@ -1,0 +1,88 @@
+<% const esEdicion = Boolean(lote && lote.id); %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-box-seam me-2"></i><%= esEdicion ? 'Editar Lote' : 'Nuevo Lote' %></h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/lotes">Lotes</a></li>
+        <li class="breadcrumb-item active"><%= esEdicion ? lote.codigo_lote : 'Nuevo' %></li>
+      </ol>
+    </nav>
+  </div>
+</div>
+
+<% if (errors && errors.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= errors[0] %></div>
+<% } %>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Datos del Lote</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="<%= esEdicion ? `/lotes/${lote.id}` : '/lotes' %>">
+          <div class="mb-4">
+            <label for="insecticida_id" class="form-label fw-semibold">Insecticida <span class="text-danger">*</span></label>
+            <select class="form-select" id="insecticida_id" name="insecticida_id" <%= esEdicion ? 'disabled' : 'required' %>>
+              <option value="">Seleccionar...</option>
+              <% insecticidas.forEach(i => { %>
+              <option value="<%= i.id %>" <%= (lote.insecticida_id == i.id) ? 'selected' : '' %>><%= i.codigo %> - <%= i.nombre %></option>
+              <% }) %>
+            </select>
+            <% if (esEdicion) { %>
+            <input type="hidden" name="insecticida_id" value="<%= lote.insecticida_id %>">
+            <% } %>
+          </div>
+
+          <div class="mb-4">
+            <label for="codigo_lote" class="form-label fw-semibold">Codigo de Lote <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+              <input type="text" class="form-control" id="codigo_lote" name="codigo_lote"
+                value="<%= lote.codigo_lote || '' %>" placeholder="Ej: LOT-2025-001" required maxlength="50" <%= esEdicion ? 'readonly' : '' %>>
+            </div>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <label for="fecha_fabricacion" class="form-label fw-semibold">Fecha de Fabricacion</label>
+              <input type="date" class="form-control" id="fecha_fabricacion" name="fecha_fabricacion"
+                value="<%= lote.fecha_fabricacion ? new Date(lote.fecha_fabricacion).toISOString().split('T')[0] : '' %>">
+            </div>
+            <div class="col-md-6">
+              <label for="fecha_vencimiento" class="form-label fw-semibold">Fecha de Vencimiento <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento"
+                value="<%= lote.fecha_vencimiento ? new Date(lote.fecha_vencimiento).toISOString().split('T')[0] : '' %>" required>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label for="cantidad_inicial" class="form-label fw-semibold">Cantidad Inicial <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="cantidad_inicial" name="cantidad_inicial"
+              value="<%= lote.cantidad_inicial || '' %>" min="0" step="0.001" placeholder="0.000" <%= esEdicion ? 'readonly' : 'required' %>>
+            <% if (esEdicion) { %>
+            <div class="form-text text-warning"><i class="bi bi-lock-fill me-1"></i>No editable. Use movimientos de ajuste para correcciones.</div>
+            <% } %>
+          </div>
+
+          <div class="mb-4">
+            <label for="observaciones" class="form-label fw-semibold">Observaciones</label>
+            <textarea class="form-control" id="observaciones" name="observaciones" rows="3" maxlength="500"><%= lote.observaciones || '' %></textarea>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end pt-2">
+            <a href="/lotes" class="btn btn-outline-secondary">
+              <i class="bi bi-x-circle me-1"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle me-1"></i><%= esEdicion ? 'Guardar Cambios' : 'Registrar Lote' %>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

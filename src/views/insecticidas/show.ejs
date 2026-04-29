@@ -1,0 +1,57 @@
+<div class="d-flex gap-2 mb-3">
+  <a href="/insecticidas" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+  <% if (userRol === 'admin') { %>
+  <a href="/insecticidas/<%= insecticida.id %>/editar" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+  <% } %>
+  <a href="/lotes/nuevo" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus me-1"></i>Nuevo Lote</a>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card-sicis">
+      <div class="card-sicis-body">
+        <div class="text-center mb-3">
+          <div class="ins-icon-big badge-<%= insecticida.tipo_uso %>"><i class="bi bi-droplet-fill"></i></div>
+          <h4 class="mt-2 mb-0"><%= insecticida.nombre %></h4>
+          <span class="badge-tipo-uso badge-<%= insecticida.tipo_uso %> mt-1"><%= insecticida.tipo_uso %></span>
+        </div>
+        <div class="detail-group"><div class="detail-label">Código</div><div class="detail-value"><code><%= insecticida.codigo %></code></div></div>
+        <div class="detail-group"><div class="detail-label">Unidad de Medida</div><div class="detail-value"><%= insecticida.unidad_medida %></div></div>
+        <div class="detail-group"><div class="detail-label">Estado</div><div class="detail-value"><span class="badge <%= insecticida.activo ? 'bg-success' : 'bg-secondary' %>"><%= insecticida.activo ? 'Activo' : 'Inactivo' %></span></div></div>
+        <% if (insecticida.descripcion) { %><div class="detail-group"><div class="detail-label">Descripción</div><div class="detail-value"><%= insecticida.descripcion %></div></div><% } %>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card-sicis">
+      <div class="card-sicis-header"><i class="bi bi-box-seam me-2"></i>Lotes Registrados</div>
+      <div class="card-sicis-body p-0">
+        <% if (lotes.length === 0) { %>
+          <p class="text-muted text-center py-4">No hay lotes registrados</p>
+        <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sicis mb-0">
+            <thead><tr><th>Código Lote</th><th>F. Fabricación</th><th>F. Vencimiento</th><th>Cant. Inicial</th><th>Stock</th><th>Estado</th></tr></thead>
+            <tbody>
+            <% for (const l of lotes) { %>
+              <tr>
+                <td><code><%= l.codigo_lote %></code></td>
+                <td><small><%= formatearFecha(l.fecha_fabricacion) %></small></td>
+                <td>
+                  <span class="badge bg-<%= l.estadoVenc.clase %>">
+                    <%= formatearFecha(l.fecha_vencimiento) %>
+                  </span>
+                  <small class="text-muted ms-1"><%= l.estadoVenc.texto %></small>
+                </td>
+                <td><%= parseFloat(l.cantidad_inicial).toFixed(2) %></td>
+                <td><strong><%= parseFloat(l.stock_total).toFixed(2) %></strong> <small class="text-muted"><%= insecticida.unidad_medida %></small></td>
+                <td><span class="badge <%= l.activo ? 'bg-success' : 'bg-secondary' %>"><%= l.activo ? 'Activo' : 'Inactivo' %></span></td>
+              </tr>
+            <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

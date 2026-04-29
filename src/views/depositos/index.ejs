@@ -1,0 +1,44 @@
+<div class="page-actions mb-3">
+  <% if (userRol === 'admin') { %>
+  <a href="/depositos/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Depósito</a>
+  <% } %>
+  <a href="/depositos/arbol" class="btn btn-outline-secondary"><i class="bi bi-diagram-3 me-1"></i>Ver Árbol</a>
+</div>
+
+<div class="card-sicis">
+  <div class="card-sicis-header"><i class="bi bi-building me-2"></i>Depósitos del Sistema</div>
+  <div class="card-sicis-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sicis mb-0">
+        <thead>
+          <tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Nivel</th><th>Depósito Padre</th><th>Departamento</th><th>Stock Total</th><th>Hijos</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody>
+        <% for (const d of depositos) { %>
+          <tr>
+            <td><code><%= d.codigo %></code></td>
+            <td>
+              <a href="/depositos/<%= d.id %>" class="link-sicis fw-bold"><%= d.nombre %></a>
+            </td>
+            <td><span class="badge-nivel-<%= d.nivel %>"><%= tipoDepositoLabel(d.tipo) %></span></td>
+            <td><span class="nivel-badge nivel-<%= d.nivel %>">N<%= d.nivel %></span></td>
+            <td class="text-muted"><small><%= d.padre_nombre || '—' %></small></td>
+            <td><small><%= d.departamento || '—' %></small></td>
+            <td><strong><%= parseFloat(d.total_stock || 0).toFixed(2) %></strong></td>
+            <td><span class="badge bg-secondary"><%= d.hijos_count %></span></td>
+            <td><span class="badge <%= d.activo ? 'bg-success' : 'bg-secondary' %>"><%= d.activo ? 'Activo' : 'Inactivo' %></span></td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <a href="/depositos/<%= d.id %>" class="btn btn-outline-primary"><i class="bi bi-eye"></i></a>
+                <% if (userRol === 'admin') { %>
+                <a href="/depositos/<%= d.id %>/editar" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                <% } %>
+              </div>
+            </td>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
