@@ -1,0 +1,56 @@
+<div class="page-actions mb-3">
+  <a href="/movimientos" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Volver a Movimientos
+  </a>
+</div>
+
+<div class="card-sicis">
+  <div class="card-sicis-header">
+    <i class="bi bi-check2-square me-2"></i>
+    Movimientos pendientes de confirmacion
+  </div>
+  <div class="card-sicis-body">
+    <% if (!movimientos.length) { %>
+      <div class="dashboard-empty-card mb-0">
+        No hay movimientos pendientes para confirmar.
+      </div>
+    <% } else { %>
+      <div class="dashboard-card-grid movements-card-grid">
+        <% for (const m of movimientos) { %>
+          <article class="dashboard-info-card movement-dashboard-card">
+            <div class="info-card-topline">
+              <a href="/movimientos/<%= m.id %>" class="link-sicis">
+                <code><%= m.numero_mov %></code>
+              </a>
+              <span class="badge bg-warning text-dark">PENDIENTE</span>
+            </div>
+
+            <h3><%= m.insecticida_nombre %></h3>
+
+            <div class="movement-amount">
+              <%= parseFloat(m.cantidad || 0).toFixed(3) %>
+              <small><%= m.unidad_medida %></small>
+            </div>
+
+            <div class="movement-route">
+              <span><i class="bi bi-box-arrow-up-right"></i><%= m.origen_nombre || 'Sin origen' %></span>
+              <span><i class="bi bi-box-arrow-in-down-right"></i><%= m.destino_nombre || 'Sin destino' %></span>
+            </div>
+
+            <div class="info-card-meta">
+              <span><i class="bi bi-tag"></i>Lote <%= m.codigo_lote %></span>
+              <span><i class="bi bi-calendar3"></i><%= formatearFecha(m.fecha_movimiento) %></span>
+              <span><i class="bi bi-person"></i>Registrado por <%= m.usuario_nombre %></span>
+            </div>
+
+            <form method="POST" action="/movimientos/<%= m.id %>/confirmar" class="mt-auto">
+              <button type="submit" class="btn btn-success w-100" data-confirm="Confirmar este movimiento y sumar el stock al deposito destino?">
+                <i class="bi bi-check-circle me-1"></i>Confirmar movimiento
+              </button>
+            </form>
+          </article>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</div>

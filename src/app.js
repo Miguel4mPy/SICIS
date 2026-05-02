@@ -9,10 +9,12 @@ const path = require('path');
 const pool = require('../config/database');
 const { loadUser } = require('./middleware/auth');
 const { formatearFecha, formatearCantidad, tipoMovimientoLabel, tipoDepositoLabel, estadoVencimiento } = require('./utils/helpers');
+const { logSystemEvent } = require('./utils/systemLogger');
 const moment = require('moment');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 let appUrl;
 try {
@@ -85,6 +87,7 @@ app.use(helmet({
 // Views
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.disable('view cache');
 
 // Static
 app.use(express.static(path.join(__dirname, '../public')));
@@ -170,12 +173,18 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  logSystemEvent('error', 'express', err.message || 'Error interno del servidor', {
+    stack: err.stack,
+    path: req.originalUrl,
+    method: req.method
+  }, req);
   res.status(500).render('errors/500', { title: 'Error interno', layout: 'layouts/main', error: process.env.NODE_ENV !== 'production' ? err.message : null });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`\n🦟 SICIS - Sistema Informático de Control de Insecticida del SENEPA`);
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en http://${HOST}:${PORT}`);
+  console.log(`📡 Acceso LAN configurado por APP_URL: ${process.env.APP_URL || `http://localhost:${PORT}`}`);
   console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}\n`);
 });
 

@@ -1,5 +1,6 @@
 <% const esEdicion = Boolean(usuario && usuario.id); %>
 <% const seleccionados = userDepIds || []; %>
+<% const responsables = userResponsibleDepIds || []; %>
 
 <div class="page-header">
   <div>
@@ -61,7 +62,7 @@
         </div>
         <div class="card-body p-4">
           <p class="text-muted small mb-3">
-            Los operadores solo podran registrar movimientos y ver reportes de los depositos asignados.
+            Los usuarios solo podran registrar movimientos y ver reportes de los depositos asignados. Para roles Encargado y Encargado Principal, marque tambien los depositos donde sera responsable.
           </p>
           <div class="mb-3">
             <input type="text" class="form-control form-control-sm" id="buscarDeposito" placeholder="Filtrar depositos..." oninput="filtrarDepositos(this.value)">
@@ -69,13 +70,19 @@
           <div id="listaDepositos" style="max-height: 320px; overflow-y: auto;">
             <% depositos.forEach(d => { %>
             <div class="deposito-item mb-2" data-nombre="<%= `${d.nombre} ${d.codigo}`.toLowerCase() %>">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="deposito_ids" value="<%= d.id %>" id="dep_<%= d.id %>" <%= seleccionados.includes(d.id) ? 'checked' : '' %>>
-                <label class="form-check-label d-flex align-items-center gap-2" for="dep_<%= d.id %>">
-                  <span class="badge badge-nivel-<%= d.nivel %> me-1">N<%= d.nivel %></span>
-                  <span class="fw-semibold"><%= d.codigo %></span>
-                  <span class="text-muted">- <%= d.nombre %></span>
-                </label>
+              <div class="d-flex align-items-start justify-content-between gap-3 border rounded p-2">
+                <div class="form-check">
+                  <input class="form-check-input dep-check" type="checkbox" name="deposito_ids" value="<%= d.id %>" id="dep_<%= d.id %>" <%= seleccionados.includes(d.id) ? 'checked' : '' %>>
+                  <label class="form-check-label d-flex align-items-center gap-2" for="dep_<%= d.id %>">
+                    <span class="badge badge-nivel-<%= d.nivel %> me-1">N<%= d.nivel %></span>
+                    <span class="fw-semibold"><%= d.codigo %></span>
+                    <span class="text-muted">- <%= d.nombre %></span>
+                  </label>
+                </div>
+                <div class="form-check form-check-inline mb-0 responsable-option">
+                  <input class="form-check-input responsable-check" type="checkbox" name="responsable_deposito_ids" value="<%= d.id %>" id="resp_<%= d.id %>" data-dep-id="<%= d.id %>" <%= responsables.includes(d.id) ? 'checked' : '' %>>
+                  <label class="form-check-label small" for="resp_<%= d.id %>">Encargado</label>
+                </div>
               </div>
             </div>
             <% }) %>
@@ -101,13 +108,20 @@
           <div class="mb-3">
             <label class="form-label fw-semibold">Rol <span class="text-danger">*</span></label>
             <div class="d-flex flex-column gap-2">
-              <% ['admin', 'gerente', 'operador'].forEach(r => { %>
+              <% const roles = [
+                { id: 'admin', label: 'Admin', descripcion: 'Administracion total del sistema', icono: 'shield-fill' },
+                { id: 'gerente', label: 'Gerente', descripcion: 'Reportes y consultas globales', icono: 'bar-chart-fill' },
+                { id: 'operador', label: 'Operador', descripcion: 'Registro de movimientos asignados', icono: 'person-fill' },
+                { id: 'encargado', label: 'Encargado', descripcion: 'Responsable operativo de uno o mas depositos', icono: 'person-badge-fill' },
+                { id: 'encargado_principal', label: 'Encargado Principal', descripcion: 'Responsable de nivel 1 con gestion de insecticidas y lotes', icono: 'person-fill-gear' }
+              ]; %>
+              <% roles.forEach(r => { %>
               <div class="form-check card border p-3">
-                <input class="form-check-input" type="radio" name="rol" value="<%= r %>" id="rol_<%= r %>" <%= (usuario.rol === r || (!esEdicion && r === 'operador')) ? 'checked' : '' %> required>
-                <label class="form-check-label" for="rol_<%= r %>">
-                  <span class="fw-semibold d-block"><%= r.charAt(0).toUpperCase() + r.slice(1) %></span>
+                <input class="form-check-input rol-radio" type="radio" name="rol" value="<%= r.id %>" id="rol_<%= r.id %>" <%= (usuario.rol === r.id || (!esEdicion && r.id === 'operador')) ? 'checked' : '' %> required onchange="actualizarOpcionesResponsable()">
+                <label class="form-check-label" for="rol_<%= r.id %>">
+                  <span class="fw-semibold d-block"><%= r.label %></span>
                   <small class="text-muted">
-                    <%= r === 'admin' ? 'Administracion total del sistema' : r === 'gerente' ? 'Reportes y consultas globales' : 'Registro de movimientos asignados' %>
+                    <%= r.descripcion %>
                   </small>
                 </label>
               </div>
@@ -181,5 +195,40 @@ function toggleTodos(estado) {
   document.querySelectorAll('input[name="deposito_ids"]').forEach(cb => {
     cb.checked = estado;
   });
+  if (!estado) {
+    document.querySelectorAll('input[name="responsable_deposito_ids"]').forEach(cb => {
+      cb.checked = false;
+    });
+  }
 }
+
+function actualizarOpcionesResponsable() {
+  const rol = document.querySelector('input[name="rol"]:checked')?.value;
+  const habilitado = rol === 'encargado' || rol === 'encargado_principal';
+  document.querySelectorAll('.responsable-check').forEach(cb => {
+    cb.disabled = !habilitado;
+    cb.closest('.responsable-option').classList.toggle('opacity-50', !habilitado);
+    if (!habilitado) cb.checked = false;
+  });
+}
+
+document.querySelectorAll('.responsable-check').forEach(cb => {
+  cb.addEventListener('change', () => {
+    if (cb.checked) {
+      const dep = document.getElementById(`dep_${cb.dataset.depId}`);
+      if (dep) dep.checked = true;
+    }
+  });
+});
+
+document.querySelectorAll('.dep-check').forEach(cb => {
+  cb.addEventListener('change', () => {
+    if (!cb.checked) {
+      const resp = document.getElementById(`resp_${cb.value}`);
+      if (resp) resp.checked = false;
+    }
+  });
+});
+
+actualizarOpcionesResponsable();
 </script>

@@ -77,21 +77,21 @@ async function seed() {
 
     // Insecticidas
     const insecticidas = [
-      { codigo: 'INS-FOC-001', nombre: 'Malathion 57% CE', tipo_uso: 'focal', unidad: 'litro' },
-      { codigo: 'INS-ESP-001', nombre: 'Cipermetrina 25% CE', tipo_uso: 'espacial', unidad: 'litro' },
-      { codigo: 'INS-ESP-002', nombre: 'Deltametrina 5% CE', tipo_uso: 'espacial', unidad: 'litro' },
-      { codigo: 'INS-RES-001', nombre: 'Lambda-Cihalotrina 10% CE', tipo_uso: 'residual', unidad: 'litro' },
-      { codigo: 'INS-RES-002', nombre: 'Bifentrina 10% CE', tipo_uso: 'residual', unidad: 'litro' },
-      { codigo: 'INS-LAR-001', nombre: 'Temefos 1% GR', tipo_uso: 'larvicida', unidad: 'kg' },
-      { codigo: 'INS-LAR-002', nombre: 'Bacillus thuringiensis H-14', tipo_uso: 'larvicida', unidad: 'litro' },
-      { codigo: 'INS-FOC-002', nombre: 'Sumithion 50% CE', tipo_uso: 'focal', unidad: 'litro' },
+      { codigo: 'INS-FOC-001', nombre: 'Malathion 57% CE', tipos: ['focal'], unidad: 'litro' },
+      { codigo: 'INS-ESP-001', nombre: 'Cipermetrina 25% CE', tipos: ['espacial'], unidad: 'litro' },
+      { codigo: 'INS-ESP-002', nombre: 'Deltametrina 5% CE', tipos: ['espacial', 'focal'], unidad: 'litro' },
+      { codigo: 'INS-RES-001', nombre: 'Lambda-Cihalotrina 10% CE', tipos: ['residual'], unidad: 'litro' },
+      { codigo: 'INS-RES-002', nombre: 'Bifentrina 10% CE', tipos: ['residual'], unidad: 'litro' },
+      { codigo: 'INS-LAR-001', nombre: 'Temefos 1% GR', tipos: ['larvicida'], unidad: 'kg' },
+      { codigo: 'INS-LAR-002', nombre: 'Bacillus thuringiensis H-14', tipos: ['larvicida'], unidad: 'litro' },
+      { codigo: 'INS-FOC-002', nombre: 'Sumithion 50% CE', tipos: ['focal'], unidad: 'litro' },
     ];
 
     for (const ins of insecticidas) {
       await client.query(`
-        INSERT INTO insecticidas (codigo, nombre, tipo_uso, unidad_medida)
-        VALUES ($1, $2, $3, $4) ON CONFLICT (codigo) DO NOTHING
-      `, [ins.codigo, ins.nombre, ins.tipo_uso, ins.unidad]);
+        INSERT INTO insecticidas (codigo, nombre, tipo_uso, tipo_usos, unidad_medida)
+        VALUES ($1, $2, $3, $4, $5) ON CONFLICT (codigo) DO NOTHING
+      `, [ins.codigo, ins.nombre, ins.tipos[0], ins.tipos, ins.unidad]);
     }
 
     // Lotes
@@ -150,8 +150,32 @@ async function seed() {
     if (opRes.rows[0]?.id && zonaIds[0]) {
       await client.query(`
         INSERT INTO usuario_depositos (usuario_id, deposito_id, es_responsable)
-        VALUES ($1, $2, true) ON CONFLICT DO NOTHING
+        VALUES ($1, $2, false) ON CONFLICT DO NOTHING
       `, [opRes.rows[0].id, zonaIds[0]]);
+    }
+
+    // Usuario Encargado
+    const encargadoHash = await bcrypt.hash('Encargado@SICIS2025!', 12);
+    const encRes = await client.query(`
+      INSERT INTO usuarios (nombre, apellido, email, password_hash, rol)
+      VALUES ('Carlos', 'Encargado', 'encargado@senepa.gov.py', $1, 'encargado')
+      ON CONFLICT (email) DO NOTHING RETURNING id
+    `, [encargadoHash]);
+
+    if (encRes.rows[0]?.id && zonaIds[0]) {
+      await client.query(
+        'UPDATE usuario_depositos SET es_responsable = false WHERE deposito_id = $1 AND es_responsable = true',
+        [zonaIds[0]]
+      );
+      await client.query(`
+        INSERT INTO usuario_depositos (usuario_id, deposito_id, es_responsable)
+        VALUES ($1, $2, true)
+        ON CONFLICT (usuario_id, deposito_id) DO UPDATE SET es_responsable = true
+      `, [encRes.rows[0].id, zonaIds[0]]);
+      await client.query(
+        "UPDATE depositos SET responsable_nombre = 'Carlos Encargado' WHERE id = $1",
+        [zonaIds[0]]
+      );
     }
 
     await client.query('COMMIT');
@@ -160,6 +184,7 @@ async function seed() {
     console.log('   Admin:    admin@senepa.gov.py    / Admin@SICIS2025!');
     console.log('   Gerente:  gerente@senepa.gov.py  / Gerente@SICIS2025!');
     console.log('   Operador: operador@senepa.gov.py / Operador@SICIS2025!');
+    console.log('   Encargado: encargado@senepa.gov.py / Encargado@SICIS2025!');
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Error en seeds:', err.message);

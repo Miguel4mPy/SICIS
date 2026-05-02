@@ -24,6 +24,27 @@ async function getDepositosPermitidos(userId, rol) {
   return r.rows;
 }
 
+async function usuarioEsResponsableDeposito(client, userId, depositoId) {
+  if (!depositoId) return false;
+  const r = await client.query(
+    'SELECT 1 FROM usuario_depositos WHERE usuario_id = $1 AND deposito_id = $2 AND es_responsable = true LIMIT 1',
+    [userId, depositoId]
+  );
+  return Boolean(r.rows[0]);
+}
+
+async function puedeConfirmarMovimiento(client, userId, rol, movimientoId) {
+  if (rol === 'admin' || rol === 'gerente') return true;
+  const r = await client.query(`
+    SELECT 1
+    FROM movimientos m
+    JOIN usuario_depositos ud ON ud.deposito_id = m.deposito_destino_id
+    WHERE m.id = $1 AND ud.usuario_id = $2 AND ud.es_responsable = true
+    LIMIT 1
+  `, [movimientoId, userId]);
+  return Boolean(r.rows[0]);
+}
+
 function getAnioEpidemiologico(info) {
   return info.anio || info.año || info['a??o'] || new Date().getFullYear();
 }
@@ -148,13 +169,28 @@ exports.create = async (req, res) => {
     if (Number.isNaN(cant) || cant <= 0) throw new Error('La cantidad debe ser mayor a cero.');
 
     const loteRes = await client.query(`
-      SELECT l.*, i.id as ins_id
+      SELECT l.*, i.id as ins_id, i.tipo_uso, COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]) as tipo_usos
       FROM lotes l
       JOIN insecticidas i ON l.insecticida_id = i.id
       WHERE l.id = $1
     `, [lote_id]);
     if (!loteRes.rows[0]) throw new Error('Lote no encontrado.');
     const lote = loteRes.rows[0];
+    if (tipo_movimiento !== 'interno' && !lote.tipo_usos.includes(tipo_movimiento)) {
+      throw new Error('El tipo de movimiento no esta habilitado para el insecticida seleccionado.');
+    }
+
+    const destinoRequiereConfirmacion = Boolean(deposito_destino_id)
+      && !['admin', 'gerente'].includes(req.session.userRol)
+      && !(await usuarioEsResponsableDeposito(client, req.session.userId, deposito_destino_id));
+    const estadoMovimiento = destinoRequiereConfirmacion ? 'pendiente' : 'confirmado';
+
+    if ((categoria === 'entrada' || categoria === 'transferencia') && !deposito_destino_id) {
+      throw new Error('Debe especificar el deposito de destino.');
+    }
+    if (categoria === 'ajuste' && !deposito_destino_id && !deposito_origen_id) {
+      throw new Error('Debe especificar un deposito.');
+    }
 
     if (categoria === 'salida' || categoria === 'transferencia') {
       if (!deposito_origen_id) throw new Error('Debe especificar el deposito de origen.');
@@ -170,12 +206,8 @@ exports.create = async (req, res) => {
       `, [deposito_origen_id, lote_id, cant]);
     }
 
-    if (categoria === 'entrada' || categoria === 'transferencia' || categoria === 'ajuste') {
-      if ((categoria === 'entrada' || categoria === 'transferencia') && !deposito_destino_id) {
-        throw new Error('Debe especificar el deposito de destino.');
-      }
+    if (estadoMovimiento === 'confirmado' && (categoria === 'entrada' || categoria === 'transferencia' || categoria === 'ajuste')) {
       const destino = deposito_destino_id || deposito_origen_id;
-      if (!destino) throw new Error('Debe especificar un deposito.');
 
       await client.query(`
         INSERT INTO stock (deposito_id, lote_id, cantidad)
@@ -191,8 +223,8 @@ exports.create = async (req, res) => {
       INSERT INTO movimientos
         (numero_mov, tipo_movimiento, categoria, deposito_origen_id, deposito_destino_id, lote_id,
          insecticida_id, cantidad, fecha_movimiento, semana_epidemiologica, "a\u00f1o_epidemiologico",
-         descripcion, observaciones, usuario_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         descripcion, observaciones, usuario_id, estado, aprobado_por, confirmado_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING id
     `, [
       numeroMov,
@@ -208,12 +240,17 @@ exports.create = async (req, res) => {
       getAnioEpidemiologico(semanaInfo),
       descripcion,
       observaciones,
-      req.session.userId
+      req.session.userId,
+      estadoMovimiento,
+      estadoMovimiento === 'confirmado' ? req.session.userId : null,
+      estadoMovimiento === 'confirmado' ? new Date() : null
     ]);
 
     await client.query('COMMIT');
     await auditLog(req, 'CREAR_MOVIMIENTO', 'movimientos', movRes.rows[0].id, null, req.body);
-    req.flash('success', `Movimiento ${numeroMov} registrado exitosamente.`);
+    req.flash('success', estadoMovimiento === 'pendiente'
+      ? `Movimiento ${numeroMov} registrado como pendiente. Debe ser confirmado por el encargado del deposito destino.`
+      : `Movimiento ${numeroMov} registrado exitosamente.`);
     res.redirect('/movimientos');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -232,13 +269,15 @@ exports.show = async (req, res) => {
       SELECT m.*, i.nombre as insecticida_nombre, i.tipo_uso, i.unidad_medida, l.codigo_lote, l.fecha_vencimiento,
         dor.nombre as origen_nombre, dor.codigo as origen_codigo,
         dde.nombre as destino_nombre, dde.codigo as destino_codigo,
-        u.nombre || ' ' || u.apellido as usuario_nombre, u.email as usuario_email
+        u.nombre || ' ' || u.apellido as usuario_nombre, u.email as usuario_email,
+        ua.nombre || ' ' || ua.apellido as aprobado_por_nombre
       FROM movimientos m
       JOIN insecticidas i ON m.insecticida_id = i.id
       JOIN lotes l ON m.lote_id = l.id
       LEFT JOIN depositos dor ON m.deposito_origen_id = dor.id
       LEFT JOIN depositos dde ON m.deposito_destino_id = dde.id
       JOIN usuarios u ON m.usuario_id = u.id
+      LEFT JOIN usuarios ua ON m.aprobado_por = ua.id
       WHERE m.id = $1
     `, [id]);
 
@@ -274,15 +313,19 @@ exports.anular = async (req, res) => {
     if (!movRes.rows[0]) throw new Error('Movimiento no encontrado o ya anulado.');
     const mov = movRes.rows[0];
 
-    if (mov.categoria === 'entrada' && mov.deposito_destino_id) {
+    if (mov.estado === 'confirmado' && mov.categoria === 'entrada' && mov.deposito_destino_id) {
       await client.query('UPDATE stock SET cantidad = cantidad - $1 WHERE deposito_id = $2 AND lote_id = $3', [mov.cantidad, mov.deposito_destino_id, mov.lote_id]);
     }
     if (mov.categoria === 'salida' && mov.deposito_origen_id) {
       await client.query('UPDATE stock SET cantidad = cantidad + $1 WHERE deposito_id = $2 AND lote_id = $3', [mov.cantidad, mov.deposito_origen_id, mov.lote_id]);
     }
     if (mov.categoria === 'transferencia') {
-      if (mov.deposito_destino_id) await client.query('UPDATE stock SET cantidad = cantidad - $1 WHERE deposito_id = $2 AND lote_id = $3', [mov.cantidad, mov.deposito_destino_id, mov.lote_id]);
+      if (mov.estado === 'confirmado' && mov.deposito_destino_id) await client.query('UPDATE stock SET cantidad = cantidad - $1 WHERE deposito_id = $2 AND lote_id = $3', [mov.cantidad, mov.deposito_destino_id, mov.lote_id]);
       if (mov.deposito_origen_id) await client.query('UPDATE stock SET cantidad = cantidad + $1 WHERE deposito_id = $2 AND lote_id = $3', [mov.cantidad, mov.deposito_origen_id, mov.lote_id]);
+    }
+    if (mov.estado === 'confirmado' && mov.categoria === 'ajuste') {
+      const depositoAjuste = mov.deposito_destino_id || mov.deposito_origen_id;
+      if (depositoAjuste) await client.query('UPDATE stock SET cantidad = cantidad - $1 WHERE deposito_id = $2 AND lote_id = $3', [mov.cantidad, depositoAjuste, mov.lote_id]);
     }
 
     await client.query(
@@ -298,6 +341,97 @@ exports.anular = async (req, res) => {
     await client.query('ROLLBACK');
     req.flash('error', err.message);
     res.redirect(`/movimientos/${id}`);
+  } finally {
+    client.release();
+  }
+};
+
+exports.confirmaciones = async (req, res) => {
+  try {
+    const params = [];
+    let whereResponsable = '';
+
+    if (!['admin', 'gerente'].includes(req.session.userRol)) {
+      params.push(req.session.userId);
+      whereResponsable = `
+        AND EXISTS (
+          SELECT 1
+          FROM usuario_depositos ud
+          WHERE ud.usuario_id = $1
+            AND ud.deposito_id = m.deposito_destino_id
+            AND ud.es_responsable = true
+        )
+      `;
+    }
+
+    const pendientes = await pool.query(`
+      SELECT m.*, i.nombre as insecticida_nombre, i.unidad_medida,
+        l.codigo_lote, l.fecha_vencimiento,
+        dor.nombre as origen_nombre, dor.codigo as origen_codigo,
+        dde.nombre as destino_nombre, dde.codigo as destino_codigo,
+        u.nombre || ' ' || u.apellido as usuario_nombre
+      FROM movimientos m
+      JOIN insecticidas i ON m.insecticida_id = i.id
+      JOIN lotes l ON m.lote_id = l.id
+      LEFT JOIN depositos dor ON m.deposito_origen_id = dor.id
+      LEFT JOIN depositos dde ON m.deposito_destino_id = dde.id
+      JOIN usuarios u ON m.usuario_id = u.id
+      WHERE m.estado = 'pendiente'
+        AND m.deposito_destino_id IS NOT NULL
+        ${whereResponsable}
+      ORDER BY m.created_at ASC
+    `, params);
+
+    res.render('movimientos/confirmaciones', {
+      title: 'Confirmacion de Movimiento',
+      movimientos: pendientes.rows,
+      tipoMovimientoLabel
+    });
+  } catch (err) {
+    console.error('Error cargando confirmaciones:', err);
+    req.flash('error', 'Error al cargar movimientos pendientes.');
+    res.redirect('/movimientos');
+  }
+};
+
+exports.confirmar = async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const puede = await puedeConfirmarMovimiento(client, req.session.userId, req.session.userRol, id);
+    if (!puede) throw new Error('No tiene permisos para confirmar este movimiento.');
+
+    const movRes = await client.query('SELECT * FROM movimientos WHERE id = $1 AND estado = $2 FOR UPDATE', [id, 'pendiente']);
+    if (!movRes.rows[0]) throw new Error('Movimiento pendiente no encontrado.');
+    const mov = movRes.rows[0];
+
+    const destino = mov.deposito_destino_id || mov.deposito_origen_id;
+    if (!destino) throw new Error('El movimiento no tiene deposito destino para confirmar.');
+
+    await client.query(`
+      INSERT INTO stock (deposito_id, lote_id, cantidad)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (deposito_id, lote_id)
+      DO UPDATE SET cantidad = stock.cantidad + $3, updated_at = NOW()
+    `, [destino, mov.lote_id, mov.cantidad]);
+
+    await client.query(`
+      UPDATE movimientos
+      SET estado = 'confirmado', aprobado_por = $1, confirmado_at = NOW(), updated_at = NOW()
+      WHERE id = $2
+    `, [req.session.userId, id]);
+
+    await client.query('COMMIT');
+    await auditLog(req, 'CONFIRMAR_MOVIMIENTO', 'movimientos', id, mov, { aprobado_por: req.session.userId });
+    req.flash('success', 'Movimiento confirmado y stock de destino actualizado.');
+    res.redirect('/movimientos/confirmaciones');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    req.flash('error', err.message || 'No se pudo confirmar el movimiento.');
+    res.redirect('/movimientos/confirmaciones');
   } finally {
     client.release();
   }

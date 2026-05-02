@@ -1,0 +1,54 @@
+<% if (success && success.length) { %>
+<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i><%= success[0] %></div>
+<% } %>
+<% if (error && error.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %></div>
+<% } %>
+
+<div class="card-sicis">
+  <div class="card-sicis-header">
+    <i class="bi bi-tags-fill me-2"></i>Tipos de Uso de Insecticidas
+  </div>
+  <div class="card-sicis-body">
+    <form method="POST" action="/tipos-uso">
+      <div class="table-responsive">
+        <table class="table table-sicis mb-0">
+          <thead>
+            <tr>
+              <th>Codigo</th>
+              <th>Nombre visible</th>
+              <th>Orden</th>
+              <th>Activo</th>
+            </tr>
+          </thead>
+          <tbody>
+          <% for (const t of tiposUso) { %>
+            <tr>
+              <td><span class="badge-tipo-uso badge-<%= t.codigo %>"><%= t.codigo %></span></td>
+              <td>
+                <input type="text" class="form-control" name="tipos[<%= t.codigo %>][nombre]" value="<%= t.nombre %>" required maxlength="80">
+              </td>
+              <td style="width: 110px">
+                <input type="number" class="form-control" name="tipos[<%= t.codigo %>][orden]" value="<%= t.orden %>" min="0" step="1">
+              </td>
+              <td style="width: 120px">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="tipos[<%= t.codigo %>][activo]" id="activo_<%= t.codigo %>" <%= t.activo ? 'checked' : '' %>>
+                  <label class="form-check-label" for="activo_<%= t.codigo %>">Activo</label>
+                </div>
+              </td>
+            </tr>
+          <% } %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <a href="/insecticidas" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg me-1"></i>Guardar tipos
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

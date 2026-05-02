@@ -9,6 +9,13 @@
     <i class="bi bi-x-circle me-1"></i>Anular
   </button>
   <% } %>
+  <% if (movimiento.estado === 'pendiente') { %>
+  <form method="POST" action="/movimientos/<%= movimiento.id %>/confirmar" class="d-inline">
+    <button type="submit" class="btn btn-success btn-sm" data-confirm="Confirmar este movimiento y sumar el stock al deposito destino?">
+      <i class="bi bi-check-circle me-1"></i>Confirmar
+    </button>
+  </form>
+  <% } %>
 </div>
 
 <div class="card-sicis">
@@ -103,6 +110,28 @@
           <div class="detail-value"><%= movimiento.created_at ? new Date(movimiento.created_at).toLocaleString('es-PY') : '—' %></div>
         </div>
       </div>
+      <% if (movimiento.estado === 'confirmado' && movimiento.aprobado_por_nombre) { %>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Confirmado por</div>
+          <div class="detail-value"><%= movimiento.aprobado_por_nombre %></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Fecha de Confirmacion</div>
+          <div class="detail-value"><%= movimiento.confirmado_at ? new Date(movimiento.confirmado_at).toLocaleString('es-PY') : '-' %></div>
+        </div>
+      </div>
+      <% } %>
+      <% if (movimiento.estado === 'pendiente') { %>
+      <div class="col-12">
+        <div class="alert alert-warning mb-0">
+          <strong><i class="bi bi-hourglass-split me-2"></i>Movimiento pendiente de confirmacion</strong><br>
+          El stock ya fue reservado en el deposito origen. El deposito destino se actualizara cuando su encargado confirme el movimiento.
+        </div>
+      </div>
+      <% } %>
       <% if (movimiento.estado === 'anulado' && movimiento.motivo_anulacion) { %>
       <div class="col-12">
         <div class="alert alert-danger">

@@ -91,15 +91,16 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const chartData = <%- chartData || '{"labels":[],"datasets":[]}' %>;
-const canvas = document.getElementById('chartReporte');
-const empty = document.getElementById('chartEmpty');
+var chartData = <%- chartData || '{"labels":[],"datasets":[]}' %>;
+var canvas = document.getElementById('chartReporte');
+var empty = document.getElementById('chartEmpty');
 
 if (!chartData.labels || chartData.labels.length === 0) {
   canvas.classList.add('d-none');
   empty.classList.remove('d-none');
 } else {
-  new Chart(canvas, {
+  if (window.sicisReporteChart) window.sicisReporteChart.destroy();
+  window.sicisReporteChart = new Chart(canvas, {
     type: '<%= tipo_grafico === 'movimientos_por_tipo' ? 'doughnut' : 'bar' %>',
     data: chartData,
     options: {

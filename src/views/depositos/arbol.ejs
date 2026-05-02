@@ -1,43 +1,64 @@
+<div class="page-actions mb-3">
+  <a href="/depositos" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Volver
+  </a>
+</div>
+
 <div class="card-sicis">
-  <div class="card-sicis-header"><i class="bi bi-diagram-3 me-2"></i>Árbol Jerárquico de Depósitos</div>
+  <div class="card-sicis-header">
+    <i class="bi bi-diagram-3 me-2"></i>Arbol Jerarquico de Depositos
+  </div>
   <div class="card-sicis-body">
-    <div class="dep-tree" id="depTree">
-      <%
-        const central = depositos.filter(d => d.nivel === 1);
-        const zonas = depositos.filter(d => d.nivel === 2);
-        const sectores = depositos.filter(d => d.nivel === 3);
-      %>
-      <% for (const c of central) { %>
-      <div class="tree-node tree-n1">
-        <div class="tree-icon"><i class="bi bi-building-fill"></i></div>
-        <div class="tree-content">
-          <a href="/depositos/<%= c.id %>" class="tree-name link-sicis"><%= c.nombre %></a>
-          <div class="tree-meta"><code><%= c.codigo %></code> · <span class="nivel-badge nivel-1">Nivel 1</span></div>
-        </div>
-      </div>
-      <div class="tree-children">
-        <% for (const z of zonas.filter(z => z.deposito_padre_id === c.id)) { %>
-        <div class="tree-node tree-n2">
-          <div class="tree-icon"><i class="bi bi-building"></i></div>
-          <div class="tree-content">
-            <a href="/depositos/<%= z.id %>" class="tree-name link-sicis"><%= z.nombre %></a>
-            <div class="tree-meta"><code><%= z.codigo %></code> · <span class="nivel-badge nivel-2">Nivel 2</span></div>
+    <%
+      const hijosPorPadre = new Map();
+      const porId = new Map(depositos.map(d => [d.id, d]));
+      for (const d of depositos) {
+        const padre = d.deposito_padre_id || 0;
+        if (!hijosPorPadre.has(padre)) hijosPorPadre.set(padre, []);
+        hijosPorPadre.get(padre).push(d);
+      }
+      const raices = depositos.filter(d => !d.deposito_padre_id || !porId.has(d.deposito_padre_id));
+      const renderNodo = (d) => {
+        const hijos = hijosPorPadre.get(d.id) || [];
+    %>
+      <li>
+        <div class="org-node org-node-n<%= d.nivel %>">
+          <div class="org-node-icon">
+            <i class="bi bi-<%= d.nivel === 1 ? 'building-fill' : d.nivel === 2 ? 'building' : 'geo-alt-fill' %>"></i>
           </div>
-        </div>
-        <div class="tree-children">
-          <% for (const s of sectores.filter(s => s.deposito_padre_id === z.id)) { %>
-          <div class="tree-node tree-n3">
-            <div class="tree-icon"><i class="bi bi-geo-alt"></i></div>
-            <div class="tree-content">
-              <a href="/depositos/<%= s.id %>" class="tree-name link-sicis"><%= s.nombre %></a>
-              <div class="tree-meta"><code><%= s.codigo %></code> · <span class="nivel-badge nivel-3">Nivel 3</span></div>
+          <div class="org-node-body">
+            <a href="/depositos/<%= d.id %>" class="org-node-title"><%= d.nombre %></a>
+            <div class="org-node-code"><code><%= d.codigo %></code></div>
+            <div class="org-node-meta">
+              <span class="nivel-badge nivel-<%= d.nivel %>">Nivel <%= d.nivel %></span>
+              <span><%= tipoDepositoLabel(d.tipo) %></span>
             </div>
           </div>
-          <% } %>
         </div>
+        <% if (hijos.length) { %>
+        <ul>
+          <% for (const h of hijos) { %>
+            <%- renderNodo(h) %>
+          <% } %>
+        </ul>
         <% } %>
+      </li>
+    <%
+      };
+    %>
+
+    <% if (depositos.length === 0) { %>
+      <p class="text-muted text-center py-4 mb-0">No hay depositos activos para mostrar.</p>
+    <% } else { %>
+      <div class="org-chart-wrap">
+        <div class="org-chart">
+          <ul>
+            <% for (const r of raices) { %>
+              <%- renderNodo(r) %>
+            <% } %>
+          </ul>
+        </div>
       </div>
-      <% } %>
-    </div>
+    <% } %>
   </div>
 </div>

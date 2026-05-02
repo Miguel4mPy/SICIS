@@ -1,29 +1,71 @@
 <div class="page-actions mb-3">
   <% if (userRol === 'admin') { %>
-  <a href="/depositos/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Depósito</a>
+  <a href="/depositos/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Deposito</a>
   <% } %>
-  <a href="/depositos/arbol" class="btn btn-outline-secondary"><i class="bi bi-diagram-3 me-1"></i>Ver Árbol</a>
+  <a href="/depositos/arbol" class="btn btn-outline-secondary"><i class="bi bi-diagram-3 me-1"></i>Ver Arbol</a>
+</div>
+
+<% const f = filtros || { nivel: '', sort: 'nivel', dir: 'asc' }; %>
+<% const sortUrl = (col) => {
+  const nextDir = f.sort === col && f.dir === 'asc' ? 'desc' : 'asc';
+  const params = new URLSearchParams();
+  if (f.nivel) params.set('nivel', f.nivel);
+  params.set('sort', col);
+  params.set('dir', nextDir);
+  return `/depositos?${params.toString()}`;
+}; %>
+<% const sortIcon = (col) => f.sort === col ? (f.dir === 'asc' ? 'bi-sort-up' : 'bi-sort-down') : 'bi-arrow-down-up'; %>
+
+<div class="card-sicis mb-3">
+  <div class="card-sicis-body py-2">
+    <form method="GET" action="/depositos" class="row g-2 align-items-end">
+      <input type="hidden" name="sort" value="<%= f.sort %>">
+      <input type="hidden" name="dir" value="<%= f.dir %>">
+      <div class="col-md-4">
+        <label class="form-label">Filtrar por nivel</label>
+        <select name="nivel" class="form-select form-select-sm">
+          <option value="">Todos los niveles</option>
+          <option value="1" <%= f.nivel === '1' ? 'selected' : '' %>>Nivel 1 - Central</option>
+          <option value="2" <%= f.nivel === '2' ? 'selected' : '' %>>Nivel 2 - Zona</option>
+          <option value="3" <%= f.nivel === '3' ? 'selected' : '' %>>Nivel 3 - Sector</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+        <a href="/depositos" class="btn btn-sm btn-outline-secondary ms-1">Limpiar</a>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div class="card-sicis">
-  <div class="card-sicis-header"><i class="bi bi-building me-2"></i>Depósitos del Sistema</div>
+  <div class="card-sicis-header"><i class="bi bi-building me-2"></i>Depositos del Sistema</div>
   <div class="card-sicis-body p-0">
     <div class="table-responsive">
       <table class="table table-sicis mb-0">
         <thead>
-          <tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Nivel</th><th>Depósito Padre</th><th>Departamento</th><th>Stock Total</th><th>Hijos</th><th>Estado</th><th></th></tr>
+          <tr>
+            <th><a class="table-sort-link" href="<%= sortUrl('codigo') %>">Codigo <i class="bi <%= sortIcon('codigo') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('nombre') %>">Nombre <i class="bi <%= sortIcon('nombre') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('tipo') %>">Tipo <i class="bi <%= sortIcon('tipo') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('nivel') %>">Nivel <i class="bi <%= sortIcon('nivel') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('padre') %>">Deposito Padre <i class="bi <%= sortIcon('padre') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('departamento') %>">Departamento <i class="bi <%= sortIcon('departamento') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('stock') %>">Stock Total <i class="bi <%= sortIcon('stock') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('hijos') %>">Hijos <i class="bi <%= sortIcon('hijos') %>"></i></a></th>
+            <th><a class="table-sort-link" href="<%= sortUrl('estado') %>">Estado <i class="bi <%= sortIcon('estado') %>"></i></a></th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
         <% for (const d of depositos) { %>
           <tr>
             <td><code><%= d.codigo %></code></td>
-            <td>
-              <a href="/depositos/<%= d.id %>" class="link-sicis fw-bold"><%= d.nombre %></a>
-            </td>
+            <td><a href="/depositos/<%= d.id %>" class="link-sicis fw-bold"><%= d.nombre %></a></td>
             <td><span class="badge-nivel-<%= d.nivel %>"><%= tipoDepositoLabel(d.tipo) %></span></td>
             <td><span class="nivel-badge nivel-<%= d.nivel %>">N<%= d.nivel %></span></td>
-            <td class="text-muted"><small><%= d.padre_nombre || '—' %></small></td>
-            <td><small><%= d.departamento || '—' %></small></td>
+            <td class="text-muted"><small><%= d.padre_nombre || '-' %></small></td>
+            <td><small><%= d.departamento || '-' %></small></td>
             <td><strong><%= parseFloat(d.total_stock || 0).toFixed(2) %></strong></td>
             <td><span class="badge bg-secondary"><%= d.hijos_count %></span></td>
             <td><span class="badge <%= d.activo ? 'bg-success' : 'bg-secondary' %>"><%= d.activo ? 'Activo' : 'Inactivo' %></span></td>
@@ -32,6 +74,9 @@
                 <a href="/depositos/<%= d.id %>" class="btn btn-outline-primary"><i class="bi bi-eye"></i></a>
                 <% if (userRol === 'admin') { %>
                 <a href="/depositos/<%= d.id %>/editar" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                <form method="POST" action="/depositos/<%= d.id %>/eliminar" class="d-inline" onsubmit="return confirm('Eliminar el deposito <%= d.nombre %>?')">
+                  <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
                 <% } %>
               </div>
             </td>

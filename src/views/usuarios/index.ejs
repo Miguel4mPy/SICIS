@@ -52,6 +52,8 @@
           <option value="admin" <%= rol === 'admin' ? 'selected' : '' %>>Admin</option>
           <option value="gerente" <%= rol === 'gerente' ? 'selected' : '' %>>Gerente</option>
           <option value="operador" <%= rol === 'operador' ? 'selected' : '' %>>Operador</option>
+          <option value="encargado" <%= rol === 'encargado' ? 'selected' : '' %>>Encargado</option>
+          <option value="encargado_principal" <%= rol === 'encargado_principal' ? 'selected' : '' %>>Encargado Principal</option>
         </select>
       </div>
       <div class="col-md-2">
@@ -112,14 +114,14 @@
           </td>
           <td>
             <span class="badge badge-rol-<%= u.rol %>">
-              <i class="bi bi-<%= u.rol === 'admin' ? 'shield-fill' : u.rol === 'gerente' ? 'bar-chart-fill' : 'person-fill' %> me-1"></i>
-              <%= u.rol.charAt(0).toUpperCase() + u.rol.slice(1) %>
+              <i class="bi bi-<%= u.rol === 'admin' ? 'shield-fill' : u.rol === 'gerente' ? 'bar-chart-fill' : u.rol === 'encargado' ? 'person-badge-fill' : u.rol === 'encargado_principal' ? 'person-fill-gear' : 'person-fill' %> me-1"></i>
+              <%= u.rol === 'encargado_principal' ? 'Encargado Principal' : u.rol.charAt(0).toUpperCase() + u.rol.slice(1) %>
             </span>
           </td>
           <td>
             <% if (u.depositos && u.depositos.length > 0) { %>
               <% u.depositos.slice(0, 2).forEach(d => { %>
-                <span class="badge bg-light text-dark border me-1 mb-1" title="<%= d.nombre %>"><%= d.codigo %></span>
+                <span class="badge <%= d.responsable ? 'bg-primary' : 'bg-light text-dark border' %> me-1 mb-1" title="<%= d.responsable ? 'Encargado de ' : '' %><%= d.nombre %>"><%= d.codigo %></span>
               <% }) %>
               <% if (u.depositos.length > 2) { %>
                 <span class="badge bg-secondary">+<%= u.depositos.length - 2 %></span>
@@ -207,7 +209,11 @@
 .avatar-admin { background: #dc354520; color: #dc3545; }
 .avatar-gerente { background: #0dcaf020; color: #0a9bb5; }
 .avatar-operador { background: #19875420; color: #198754; }
+.avatar-encargado { background: #6f42c120; color: #5a32a3; }
+.avatar-encargado_principal { background: #1e88e520; color: #155fa0; }
 .badge-rol-admin { background: #dc354520; color: #dc3545; border: 1px solid #dc354540; }
 .badge-rol-gerente { background: #0dcaf020; color: #0a9bb5; border: 1px solid #0dcaf040; }
 .badge-rol-operador { background: #19875420; color: #198754; border: 1px solid #19875440; }
+.badge-rol-encargado { background: #6f42c120; color: #5a32a3; border: 1px solid #6f42c140; }
+.badge-rol-encargado_principal { background: #1e88e520; color: #155fa0; border: 1px solid #1e88e540; }
 </style>

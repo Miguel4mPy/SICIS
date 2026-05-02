@@ -10,10 +10,10 @@
     <form method="POST" action="/movimientos" id="movForm">
       <div class="row g-3">
 
-        <!-- Tipo de movimiento y categoría -->
+        <!-- Tipo de movimiento y categoria -->
         <div class="col-md-6">
           <label class="form-label required">Tipo de Movimiento</label>
-          <select name="tipo_movimiento" class="form-select" required>
+          <select name="tipo_movimiento" class="form-select" required id="tipoMovimientoSelect" onchange="filtrarInsecticidasPorTipo()">
             <option value="">Seleccionar...</option>
             <% for (const t of ['interno','espacial','focal','residual','larvicida']) { %>
             <option value="<%= t %>"><%= tipoMovimientoLabel(t) %></option>
@@ -21,12 +21,12 @@
           </select>
         </div>
         <div class="col-md-6">
-          <label class="form-label required">Categoría</label>
+          <label class="form-label required">Categoria</label>
           <select name="categoria" class="form-select" required id="categoriaSelect" onchange="onCategoriaChange()">
             <option value="">Seleccionar...</option>
-            <option value="entrada">Entrada (ingreso al depósito)</option>
-            <option value="salida">Salida (uso / aplicación)</option>
-            <option value="transferencia">Transferencia (entre depósitos)</option>
+            <option value="entrada">Entrada (ingreso al deposito)</option>
+            <option value="salida">Salida (uso / aplicacion)</option>
+            <option value="transferencia">Transferencia (entre depositos)</option>
             <option value="ajuste">Ajuste de Inventario</option>
           </select>
         </div>
@@ -37,7 +37,8 @@
           <select name="insecticida_id_filtro" class="form-select" id="insectSelect" onchange="filtrarLotes()">
             <option value="">Seleccionar insecticida...</option>
             <% for (const i of insecticidas) { %>
-            <option value="<%= i.id %>"><%= i.nombre %> (<%= i.tipo_uso %>)</option>
+            <% const usos = Array.isArray(i.tipo_usos) && i.tipo_usos.length ? i.tipo_usos : [i.tipo_uso]; %>
+            <option value="<%= i.id %>" data-usos="<%= usos.join(',') %>"><%= i.nombre %> (<%= usos.join(', ') %>)</option>
             <% } %>
           </select>
         </div>
@@ -47,16 +48,16 @@
             <option value="">Seleccionar lote...</option>
             <% for (const l of lotes) { %>
             <option value="<%= l.id %>" data-ins="<%= l.insecticida_id %>" data-vence="<%= l.fecha_vencimiento %>" data-unidad="<%= l.unidad_medida %>">
-              <%= l.codigo_lote %> — Vence: <%= new Date(l.fecha_vencimiento).toLocaleDateString('es-PY') %>
+              <%= l.codigo_lote %> - Vence: <%= new Date(l.fecha_vencimiento).toLocaleDateString('es-PY') %>
             </option>
             <% } %>
           </select>
           <div id="loteInfo" class="form-text"></div>
         </div>
 
-        <!-- Depósito Origen -->
+        <!-- Deposito Origen -->
         <div class="col-md-6" id="origenWrap">
-          <label class="form-label" id="origenLabel">Depósito Origen</label>
+          <label class="form-label" id="origenLabel">Deposito Origen</label>
           <select name="deposito_origen_id" class="form-select" id="origenSelect" onchange="cargarStockDisponible()">
             <option value="">Seleccionar...</option>
             <% for (const d of depositos) { %>
@@ -66,9 +67,9 @@
           <div id="stockDisponible" class="form-text text-success fw-bold"></div>
         </div>
 
-        <!-- Depósito Destino -->
+        <!-- Deposito Destino -->
         <div class="col-md-6" id="destinoWrap">
-          <label class="form-label" id="destinoLabel">Depósito Destino</label>
+          <label class="form-label" id="destinoLabel">Deposito Destino</label>
           <select name="deposito_destino_id" class="form-select" id="destinoSelect">
             <option value="">Seleccionar...</option>
             <% for (const d of depositos) { %>
@@ -82,7 +83,7 @@
           <label class="form-label required">Cantidad</label>
           <div class="input-group">
             <input type="number" name="cantidad" class="form-control" required min="0.001" step="0.001" placeholder="0.000">
-            <span class="input-group-text" id="unidadLabel">—</span>
+            <span class="input-group-text" id="unidadLabel">-</span>
           </div>
         </div>
         <div class="col-md-4">
@@ -90,7 +91,7 @@
           <input type="date" name="fecha_movimiento" class="form-control" required value="<%= new Date().toISOString().split('T')[0] %>">
         </div>
         <div class="col-md-4">
-          <label class="form-label">Descripción</label>
+          <label class="form-label">Descripcion</label>
           <input type="text" name="descripcion" class="form-control" placeholder="Ej: Operativo zona norte">
         </div>
         <div class="col-12">
@@ -111,20 +112,35 @@
 
 <script>
 // Datos lotes para filtrado
-const lotesData = <%- JSON.stringify(lotes.map(l => ({ id: l.id, insecticida_id: l.insecticida_id, codigo_lote: l.codigo_lote, fecha_vencimiento: l.fecha_vencimiento, unidad_medida: l.unidad_medida }))) %>;
+window.movimientoLotesData = <%- JSON.stringify(lotes.map(l => ({ id: l.id, insecticida_id: l.insecticida_id, codigo_lote: l.codigo_lote, fecha_vencimiento: l.fecha_vencimiento, unidad_medida: l.unidad_medida }))) %>;
+
+function filtrarInsecticidasPorTipo() {
+  const tipo = document.getElementById('tipoMovimientoSelect').value;
+  const insectSelect = document.getElementById('insectSelect');
+  Array.from(insectSelect.options).forEach(opt => {
+    if (!opt.value) return;
+    const usos = (opt.dataset.usos || '').split(',');
+    opt.hidden = Boolean(tipo && tipo !== 'interno' && !usos.includes(tipo));
+  });
+  if (insectSelect.selectedOptions[0]?.hidden) {
+    insectSelect.value = '';
+    filtrarLotes();
+  }
+}
 
 function filtrarLotes() {
   const insId = document.getElementById('insectSelect').value;
   const sel = document.getElementById('loteSelect');
   sel.innerHTML = '<option value="">Seleccionar lote...</option>';
   document.getElementById('stockDisponible').textContent = '';
+  const lotesData = window.movimientoLotesData || [];
   const filtrados = insId ? lotesData.filter(l => l.insecticida_id == insId) : lotesData;
   filtrados.forEach(l => {
     const opt = document.createElement('option');
     opt.value = l.id;
     opt.dataset.vence = l.fecha_vencimiento;
     opt.dataset.unidad = l.unidad_medida;
-    opt.textContent = `${l.codigo_lote} — Vence: ${new Date(l.fecha_vencimiento).toLocaleDateString('es-PY')}`;
+    opt.textContent = `${l.codigo_lote} - Vence: ${new Date(l.fecha_vencimiento).toLocaleDateString('es-PY')}`;
     sel.appendChild(opt);
   });
 }
@@ -137,7 +153,7 @@ function onLoteChange() {
     const unidad = opt.dataset.unidad || '';
     document.getElementById('unidadLabel').textContent = unidad;
     const dias = Math.floor((new Date(vence) - new Date()) / 86400000);
-    document.getElementById('loteInfo').textContent = `Vencimiento: ${new Date(vence).toLocaleDateString('es-PY')} (${dias} días)`;
+    document.getElementById('loteInfo').textContent = `Vencimiento: ${new Date(vence).toLocaleDateString('es-PY')} (${dias} dias)`;
     document.getElementById('loteInfo').className = `form-text ${dias < 30 ? 'text-danger' : dias < 90 ? 'text-warning' : 'text-success'}`;
   }
   cargarStockDisponible();
@@ -152,7 +168,7 @@ async function cargarStockDisponible() {
   const r = await fetch(`/api/stock/${depId}?insecticida_id=${document.getElementById('insectSelect').value || 0}`);
   const data = await r.json();
   const lote = data.find(x => x.lote_id == loteId);
-  div.textContent = lote ? `✓ Stock disponible: ${parseFloat(lote.cantidad).toFixed(3)} ${lote.unidad_medida}` : '⚠ Sin stock para este lote en el depósito seleccionado';
+  div.textContent = lote ? `Stock disponible: ${parseFloat(lote.cantidad).toFixed(3)} ${lote.unidad_medida}` : 'Sin stock para este lote en el deposito seleccionado';
   div.className = `form-text fw-bold ${lote ? 'text-success' : 'text-danger'}`;
 }
 
@@ -179,4 +195,5 @@ function onCategoriaChange() {
 }
 
 onCategoriaChange();
+filtrarInsecticidasPorTipo();
 </script>

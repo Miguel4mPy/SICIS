@@ -10,7 +10,7 @@
       <div class="row g-3">
         <div class="col-md-4">
           <label class="form-label required">Código</label>
-          <input type="text" name="codigo" class="form-control" value="<%= deposito.codigo || '' %>" required placeholder="DEP-ZN-020" <%= deposito.id ? 'readonly' : '' %>>
+          <input type="text" name="codigo" class="form-control" value="<%= deposito.codigo || '' %>" required placeholder="DEP-ZN-020">
         </div>
         <div class="col-md-8">
           <label class="form-label required">Nombre</label>
@@ -51,7 +51,13 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">Responsable</label>
-          <input type="text" name="responsable_nombre" class="form-control" value="<%= deposito.responsable_nombre || '' %>">
+          <select name="responsable_usuario_id" class="form-select">
+            <option value="">Sin responsable asignado</option>
+            <% for (const e of encargados || []) { %>
+            <option value="<%= e.id %>" <%= responsableUsuarioId == e.id ? 'selected' : '' %>><%= e.apellido %>, <%= e.nombre %> - <%= e.email %></option>
+            <% } %>
+          </select>
+          <div class="form-text">Solo aparecen usuarios activos con rol Encargado.</div>
         </div>
         <div class="col-md-6">
           <label class="form-label">Dirección</label>

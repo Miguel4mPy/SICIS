@@ -5,6 +5,7 @@ const { auditLog } = require('../middleware/auth');
 const { sendPasswordSetupEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const TOKEN_HOURS = parseInt(process.env.PASSWORD_TOKEN_HOURS) || 24;
+const ROLES_VALIDOS = ['admin', 'gerente', 'operador', 'encargado', 'encargado_principal'];
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -39,6 +40,65 @@ async function sendPasswordLink(user, kind) {
   return url;
 }
 
+function normalizeIds(value) {
+  if (!value) return [];
+  const values = Array.isArray(value) ? value : [value];
+  return [...new Set(values.map(v => parseInt(v, 10)).filter(Number.isInteger))];
+}
+
+function ensureValidRole(rol) {
+  if (!ROLES_VALIDOS.includes(rol)) {
+    throw new Error('Seleccione un rol valido.');
+  }
+}
+
+async function syncUsuarioDepositos(client, userId, rol, depositoIdsRaw, responsableIdsRaw) {
+  const depositoIds = normalizeIds(depositoIdsRaw);
+  const responsableIds = (rol === 'encargado' || rol === 'encargado_principal') ? normalizeIds(responsableIdsRaw) : [];
+  const allIds = [...new Set([...depositoIds, ...responsableIds])];
+
+  const oldResponsables = await client.query(
+    'SELECT deposito_id FROM usuario_depositos WHERE usuario_id = $1 AND es_responsable = true',
+    [userId]
+  );
+
+  await client.query('DELETE FROM usuario_depositos WHERE usuario_id = $1', [userId]);
+
+  for (const depId of allIds) {
+    const esResponsable = responsableIds.includes(depId);
+    if (esResponsable) {
+      await client.query(
+        'UPDATE usuario_depositos SET es_responsable = false WHERE deposito_id = $1 AND es_responsable = true',
+        [depId]
+      );
+    }
+    await client.query(
+      'INSERT INTO usuario_depositos (usuario_id, deposito_id, es_responsable) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',
+      [userId, depId, esResponsable]
+    );
+  }
+
+  const user = await client.query('SELECT nombre, apellido FROM usuarios WHERE id = $1', [userId]);
+  const responsableNombre = user.rows[0] ? `${user.rows[0].nombre} ${user.rows[0].apellido}` : null;
+
+  for (const depId of responsableIds) {
+    await client.query('UPDATE depositos SET responsable_nombre = $1 WHERE id = $2', [responsableNombre, depId]);
+  }
+
+  const oldIds = oldResponsables.rows.map(r => r.deposito_id);
+  const removedIds = oldIds.filter(depId => !responsableIds.includes(depId));
+  for (const depId of removedIds) {
+    const current = await client.query(`
+      SELECT u.nombre || ' ' || u.apellido as nombre
+      FROM usuario_depositos ud
+      JOIN usuarios u ON u.id = ud.usuario_id
+      WHERE ud.deposito_id = $1 AND ud.es_responsable = true
+      LIMIT 1
+    `, [depId]);
+    await client.query('UPDATE depositos SET responsable_nombre = $1 WHERE id = $2', [current.rows[0]?.nombre || null, depId]);
+  }
+}
+
 exports.index = async (req, res) => {
   const { buscar = '', rol = '', estado = '' } = req.query;
   const filters = [];
@@ -62,7 +122,7 @@ exports.index = async (req, res) => {
     const usuarios = await pool.query(`
       SELECT u.*,
         COALESCE(
-          JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('codigo', d.codigo, 'nombre', d.nombre))
+          JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT('codigo', d.codigo, 'nombre', d.nombre, 'responsable', ud.es_responsable))
             FILTER (WHERE d.id IS NOT NULL),
           '[]'::jsonb
         ) as depositos
@@ -95,14 +155,16 @@ exports.new = async (req, res) => {
     usuario: {},
     depositos: deps.rows,
     userDepIds: [],
+    userResponsibleDepIds: [],
     errors: req.flash('error')
   });
 };
 
 exports.create = async (req, res) => {
-  const { nombre, apellido, email, rol, deposito_ids } = req.body;
+  const { nombre, apellido, email, rol, deposito_ids, responsable_deposito_ids } = req.body;
   const client = await pool.connect();
   try {
+    ensureValidRole(rol);
     await client.query('BEGIN');
     const unusableHash = await bcrypt.hash(uuidv4(), parseInt(process.env.BCRYPT_ROUNDS) || 12);
     const result = await client.query(
@@ -111,12 +173,7 @@ exports.create = async (req, res) => {
     );
 
     const user = result.rows[0];
-    if (deposito_ids) {
-      const ids = Array.isArray(deposito_ids) ? deposito_ids : [deposito_ids];
-      for (const depId of ids) {
-        await client.query('INSERT INTO usuario_depositos (usuario_id, deposito_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [user.id, depId]);
-      }
-    }
+    await syncUsuarioDepositos(client, user.id, rol, deposito_ids, responsable_deposito_ids);
 
     await client.query('COMMIT');
     await sendPasswordLink(user, 'setup');
@@ -136,35 +193,31 @@ exports.edit = async (req, res) => {
   const { id } = req.params;
   const user = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
   const deps = await pool.query('SELECT id, codigo, nombre, tipo, nivel FROM depositos WHERE activo = true ORDER BY nivel, nombre');
-  const userDeps = await pool.query('SELECT deposito_id FROM usuario_depositos WHERE usuario_id = $1', [id]);
+  const userDeps = await pool.query('SELECT deposito_id, es_responsable FROM usuario_depositos WHERE usuario_id = $1', [id]);
 
   res.render('usuarios/form', {
     title: 'Editar Usuario',
     usuario: user.rows[0] || {},
     depositos: deps.rows,
     userDepIds: userDeps.rows.map(r => r.deposito_id),
+    userResponsibleDepIds: userDeps.rows.filter(r => r.es_responsable).map(r => r.deposito_id),
     errors: req.flash('error')
   });
 };
 
 exports.update = async (req, res) => {
   const { id } = req.params;
-  const { nombre, apellido, email, rol, activo, deposito_ids } = req.body;
+  const { nombre, apellido, email, rol, activo, deposito_ids, responsable_deposito_ids } = req.body;
   const client = await pool.connect();
   try {
+    ensureValidRole(rol);
     await client.query('BEGIN');
     await client.query(
       'UPDATE usuarios SET nombre=$1, apellido=$2, email=$3, rol=$4, activo=$5 WHERE id=$6',
       [nombre, apellido, normalizeEmail(email), rol, activo === 'on', id]
     );
 
-    await client.query('DELETE FROM usuario_depositos WHERE usuario_id = $1', [id]);
-    if (deposito_ids) {
-      const ids = Array.isArray(deposito_ids) ? deposito_ids : [deposito_ids];
-      for (const depId of ids) {
-        await client.query('INSERT INTO usuario_depositos (usuario_id, deposito_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, depId]);
-      }
-    }
+    await syncUsuarioDepositos(client, id, rol, deposito_ids, responsable_deposito_ids);
 
     await client.query('COMMIT');
     await auditLog(req, 'EDITAR_USUARIO', 'usuarios', id, null, req.body);

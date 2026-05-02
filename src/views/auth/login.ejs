@@ -18,7 +18,9 @@
     <div class="input-group">
       <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
       <input type="password" name="password" id="password" class="form-control" placeholder="********" required autocomplete="current-password">
-      <button type="button" class="input-group-text toggle-pass" onclick="togglePassword()"><i class="bi bi-eye" id="eyeIcon"></i></button>
+      <button type="button" class="input-group-text toggle-pass" id="togglePasswordBtn" data-toggle-password="password" onclick="event.preventDefault(); if (window.togglePasswordVisibility) window.togglePasswordVisibility(this);" aria-label="Mostrar contrasena" aria-pressed="false">
+        <i class="bi bi-eye" id="eyeIcon"></i>
+      </button>
     </div>
   </div>
   <button type="submit" class="btn btn-primary w-100 btn-lg">
@@ -30,14 +32,5 @@
 </div>
 <div class="auth-security-note">
   <i class="bi bi-shield-check me-1"></i>
-  Acceso protegido con contrasena verificada por correo
+  Acceso protegido por doble factor de autenticacion
 </div>
-
-<script>
-function togglePassword() {
-  const p = document.getElementById('password');
-  const i = document.getElementById('eyeIcon');
-  p.type = p.type === 'password' ? 'text' : 'password';
-  i.className = p.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
-}
-</script>

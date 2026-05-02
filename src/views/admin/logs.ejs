@@ -1,0 +1,273 @@
+<%
+  const formatDateTime = (value) => value ? new Date(value).toLocaleString('es-PY') : '-';
+  const fmtNum = (value) => Number(value || 0).toLocaleString('es-PY');
+  const fmtMb = (value) => `${Number(value || 0).toFixed(1)} MB`;
+  const fmtDuration = (seconds) => {
+    const total = Math.floor(Number(seconds || 0));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
+  const prettyJson = (value) => {
+    if (!value) return '';
+    try {
+      return JSON.stringify(typeof value === 'string' ? JSON.parse(value) : value, null, 2);
+    } catch (_) {
+      return String(value);
+    }
+  };
+%>
+
+<div class="dashboard-page">
+  <section class="dashboard-section">
+    <div class="dashboard-section-header">
+      <div>
+        <span class="dashboard-eyebrow">Administracion</span>
+        <h2>Logs y diagnostico</h2>
+      </div>
+    </div>
+
+    <div class="dashboard-summary-grid">
+      <div class="dashboard-summary-card summary-blue">
+        <div class="summary-icon"><i class="bi bi-journal-text"></i></div>
+        <div>
+          <div class="summary-value"><%= fmtNum(resumenAudit.audit_24h) %></div>
+          <div class="summary-label">Eventos de usuarios</div>
+          <div class="summary-meta">Ultimas 24 horas</div>
+        </div>
+      </div>
+      <div class="dashboard-summary-card summary-red">
+        <div class="summary-icon"><i class="bi bi-exclamation-triangle"></i></div>
+        <div>
+          <div class="summary-value"><%= fmtNum(resumenSystem.errores_24h) %></div>
+          <div class="summary-label">Errores del servidor</div>
+          <div class="summary-meta">Ultimas 24 horas</div>
+        </div>
+      </div>
+      <div class="dashboard-summary-card summary-orange">
+        <div class="summary-icon"><i class="bi bi-key"></i></div>
+        <div>
+          <div class="summary-value"><%= fmtNum(resumenAudit.passwords_7d) %></div>
+          <div class="summary-label">Cambios de contrasena</div>
+          <div class="summary-meta">Ultimos 7 dias</div>
+        </div>
+      </div>
+      <div class="dashboard-summary-card summary-green">
+        <div class="summary-icon"><i class="bi bi-person-check"></i></div>
+        <div>
+          <div class="summary-value"><%= fmtNum(diagnostico.sesionesActivas) %></div>
+          <div class="summary-label">Sesiones activas</div>
+          <div class="summary-meta"><%= diagnostico.entorno %></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section">
+    <div class="card-sicis">
+      <div class="card-sicis-header">
+        <i class="bi bi-funnel me-2"></i>Filtros de analisis
+      </div>
+      <div class="card-sicis-body">
+        <form method="GET" action="/logs" class="row g-2 align-items-end">
+          <div class="col-md-2">
+            <label class="form-label">Tipo</label>
+            <select name="tipo" class="form-select form-select-sm">
+              <option value="todos" <%= filtros.tipo === 'todos' ? 'selected' : '' %>>Todos</option>
+              <option value="usuarios" <%= filtros.tipo === 'usuarios' ? 'selected' : '' %>>Usuarios</option>
+              <option value="sistema" <%= filtros.tipo === 'sistema' ? 'selected' : '' %>>Sistema/Servidor</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Usuario</label>
+            <select name="usuario_id" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <% for (const u of usuarios) { %>
+              <option value="<%= u.id %>" <%= String(filtros.usuario_id) === String(u.id) ? 'selected' : '' %>><%= u.apellido %>, <%= u.nombre %></option>
+              <% } %>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Accion</label>
+            <input name="accion" list="accionesLog" class="form-control form-control-sm" value="<%= filtros.accion || '' %>" placeholder="LOGIN, CREAR...">
+            <datalist id="accionesLog">
+              <% for (const a of acciones) { %><option value="<%= a %>"><% } %>
+            </datalist>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Tabla</label>
+            <select name="tabla" class="form-select form-select-sm">
+              <option value="">Todas</option>
+              <% for (const t of tablas) { %>
+              <option value="<%= t %>" <%= filtros.tabla === t ? 'selected' : '' %>><%= t %></option>
+              <% } %>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Nivel</label>
+            <select name="nivel" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <% for (const n of ['debug','info','warning','error','critical']) { %>
+              <option value="<%= n %>" <%= filtros.nivel === n ? 'selected' : '' %>><%= n %></option>
+              <% } %>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Origen</label>
+            <input name="origen" class="form-control form-control-sm" value="<%= filtros.origen || '' %>" placeholder="express, db...">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Desde</label>
+            <input type="date" name="fecha_desde" class="form-control form-control-sm" value="<%= filtros.fecha_desde || '' %>">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="<%= filtros.fecha_hasta || '' %>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Buscar en datos</label>
+            <input name="buscar" class="form-control form-control-sm" value="<%= filtros.buscar || '' %>" placeholder="Texto, email, tabla, mensaje...">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Limite</label>
+            <select name="limit" class="form-select form-select-sm">
+              <% for (const l of [20, 50, 80, 150, 250]) { %>
+              <option value="<%= l %>" <%= Number(filtros.limit) === l ? 'selected' : '' %>><%= l %></option>
+              <% } %>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex gap-2">
+            <button class="btn btn-primary btn-sm flex-fill" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
+            <a href="/logs" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section">
+    <div class="dashboard-section-header">
+      <div>
+        <span class="dashboard-eyebrow">Servidor y sistema</span>
+        <h2>Diagnostico rapido</h2>
+      </div>
+    </div>
+    <div class="dashboard-card-grid stock-card-grid">
+      <div class="dashboard-info-card">
+        <div class="info-card-topline"><code>Runtime</code><span class="stock-unit"><%= diagnostico.entorno %></span></div>
+        <h3>Node <%= diagnostico.node %></h3>
+        <div class="info-card-meta">
+          <span><i class="bi bi-pc-display"></i><%= diagnostico.host %></span>
+          <span><i class="bi bi-cpu"></i><%= diagnostico.cpuCount %> CPU</span>
+          <span><i class="bi bi-clock-history"></i>Proceso <%= fmtDuration(diagnostico.uptimeProceso) %></span>
+        </div>
+      </div>
+      <div class="dashboard-info-card">
+        <div class="info-card-topline"><code>Memoria</code><span class="stock-unit">RSS</span></div>
+        <h3><%= fmtMb(diagnostico.memoriaRssMb) %></h3>
+        <div class="info-card-meta">
+          <span><i class="bi bi-memory"></i>Heap usado <%= fmtMb(diagnostico.memoriaHeapMb) %></span>
+          <span><i class="bi bi-hdd-network"></i>Sistema activo <%= fmtDuration(diagnostico.uptimeSistema) %></span>
+        </div>
+      </div>
+      <div class="dashboard-info-card">
+        <div class="info-card-topline"><code>Base de datos</code><span class="stock-unit"><%= diagnostico.db.database %></span></div>
+        <h3>PostgreSQL</h3>
+        <div class="info-card-meta">
+          <span><i class="bi bi-database"></i><%= diagnostico.db.version.split(',')[0] %></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <% if (filtros.tipo !== 'sistema') { %>
+  <section class="dashboard-section">
+    <div class="card-sicis">
+      <div class="card-sicis-header">
+        <i class="bi bi-person-lines-fill me-2"></i>Auditoria de usuarios y datos
+      </div>
+      <div class="card-sicis-body p-0">
+        <% if (!auditLogs.length) { %>
+          <p class="text-muted text-center py-4 mb-0">No hay registros de auditoria para los filtros aplicados.</p>
+        <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sicis mb-0 logs-table">
+            <thead>
+              <tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Tabla</th><th>Registro</th><th>IP</th><th>Detalle</th></tr>
+            </thead>
+            <tbody>
+              <% for (const log of auditLogs) { %>
+              <tr>
+                <td><small><%= formatDateTime(log.created_at) %></small></td>
+                <td>
+                  <strong><%= log.usuario_nombre || 'Sistema' %></strong><br>
+                  <small class="text-muted"><%= log.usuario_email || '-' %></small>
+                </td>
+                <td><span class="badge bg-primary-subtle text-primary border"><%= log.accion %></span></td>
+                <td><code><%= log.tabla || '-' %></code></td>
+                <td><%= log.registro_id || '-' %></td>
+                <td><small><%= log.ip_address || '-' %></small></td>
+                <td>
+                  <details class="log-details">
+                    <summary>Ver datos</summary>
+                    <div class="log-json-wrap">
+                      <% if (log.datos_anteriores) { %><label>Antes</label><pre><%= prettyJson(log.datos_anteriores) %></pre><% } %>
+                      <% if (log.datos_nuevos) { %><label>Nuevo</label><pre><%= prettyJson(log.datos_nuevos) %></pre><% } %>
+                      <% if (!log.datos_anteriores && !log.datos_nuevos) { %><span class="text-muted">Sin datos adicionales</span><% } %>
+                    </div>
+                  </details>
+                </td>
+              </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+  <% } %>
+
+  <% if (filtros.tipo !== 'usuarios') { %>
+  <section class="dashboard-section">
+    <div class="card-sicis">
+      <div class="card-sicis-header">
+        <i class="bi bi-terminal me-2"></i>Eventos del sistema y servidor
+      </div>
+      <div class="card-sicis-body p-0">
+        <% if (!systemLogs.length) { %>
+          <p class="text-muted text-center py-4 mb-0">No hay eventos tecnicos registrados para los filtros aplicados.</p>
+        <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sicis mb-0 logs-table">
+            <thead>
+              <tr><th>Fecha</th><th>Nivel</th><th>Origen</th><th>Mensaje</th><th>Usuario</th><th>IP</th><th>Metadata</th></tr>
+            </thead>
+            <tbody>
+              <% for (const log of systemLogs) { %>
+              <tr>
+                <td><small><%= formatDateTime(log.created_at) %></small></td>
+                <td><span class="log-level log-level-<%= log.nivel %>"><%= log.nivel %></span></td>
+                <td><code><%= log.origen %></code></td>
+                <td><%= log.mensaje %></td>
+                <td><%= log.usuario_nombre || '-' %></td>
+                <td><small><%= log.ip_address || '-' %></small></td>
+                <td>
+                  <details class="log-details">
+                    <summary>Ver</summary>
+                    <div class="log-json-wrap">
+                      <% if (log.metadata) { %><pre><%= prettyJson(log.metadata) %></pre><% } else { %><span class="text-muted">Sin metadata</span><% } %>
+                    </div>
+                  </details>
+                </td>
+              </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+  <% } %>
+</div>

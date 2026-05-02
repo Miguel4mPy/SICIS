@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= title %> — SICIS</title>
+  <title><%= title %> - SICIS</title>
   <link rel="icon" href="/images/favicon.ico">
   <link rel="apple-touch-icon" href="/images/favicon_io/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,7 +14,6 @@
 </head>
 <body class="app-body">
 
-<!-- Sidebar -->
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo">
@@ -38,75 +37,105 @@
   <% } %>
 
   <div class="sidebar-nav">
-    <div class="nav-section-label">Principal</div>
     <a href="/dashboard" class="nav-item <%= currentPath === '/dashboard' ? 'active' : '' %>">
       <i class="bi bi-speedometer2"></i><span>Dashboard</span>
     </a>
-    <a href="/movimientos" class="nav-item <%= currentPath.startsWith('/movimientos') ? 'active' : '' %>">
-      <i class="bi bi-arrow-left-right"></i><span>Movimientos</span>
-    </a>
-    <a href="/depositos" class="nav-item <%= currentPath.startsWith('/depositos') ? 'active' : '' %>">
-      <i class="bi bi-building"></i><span>Depósitos</span>
-    </a>
-    <a href="/insecticidas" class="nav-item <%= currentPath.startsWith('/insecticidas') ? 'active' : '' %>">
-      <i class="bi bi-droplet-fill"></i><span>Insecticidas</span>
-    </a>
-    <a href="/lotes" class="nav-item <%= currentPath.startsWith('/lotes') ? 'active' : '' %>">
-      <i class="bi bi-box-seam"></i><span>Lotes</span>
-    </a>
 
-    <div class="nav-section-label mt-2">Reportes</div>
-    <a href="/reportes" class="nav-item <%= currentPath === '/reportes' ? 'active' : '' %>">
-      <i class="bi bi-file-earmark-text"></i><span>Reportes</span>
-    </a>
-    <a href="/reportes/movimientos" class="nav-item <%= currentPath === '/reportes/movimientos' ? 'active' : '' %>">
-      <i class="bi bi-journal-text"></i><span>Mov. Detallado</span>
-    </a>
-    <a href="/reportes/stock" class="nav-item <%= currentPath === '/reportes/stock' ? 'active' : '' %>">
-      <i class="bi bi-clipboard-data"></i><span>Stock</span>
-    </a>
-    <% if (userRol && (userRol === 'admin' || userRol === 'gerente')) { %>
-    <a href="/reportes/grafico" class="nav-item <%= currentPath === '/reportes/grafico' ? 'active' : '' %>">
-      <i class="bi bi-bar-chart-fill"></i><span>Gráficos</span>
-    </a>
-    <% } %>
+    <details class="nav-group" <%= currentPath.startsWith('/movimientos') ? 'open' : '' %>>
+      <summary class="nav-section-toggle">
+        <span><i class="bi bi-journal-plus"></i>Registros</span>
+        <i class="bi bi-chevron-down nav-group-chevron"></i>
+      </summary>
+      <div class="nav-group-items">
+        <a href="/movimientos" class="nav-item <%= currentPath.startsWith('/movimientos') ? 'active' : '' %>">
+          <i class="bi bi-arrow-left-right"></i><span>Movimientos</span>
+        </a>
+        <a href="/movimientos/confirmaciones" class="nav-item <%= currentPath.startsWith('/movimientos/confirmaciones') ? 'active' : '' %>">
+          <i class="bi bi-check2-square"></i><span>Confirmacion de Movimiento</span>
+        </a>
+      </div>
+    </details>
 
-    <% if (userRol === 'admin') { %>
-    <div class="nav-section-label mt-2">Administración</div>
-    <a href="/usuarios" class="nav-item <%= currentPath.startsWith('/usuarios') ? 'active' : '' %>">
-      <i class="bi bi-people-fill"></i><span>Usuarios</span>
-    </a>
+    <details class="nav-group" <%= currentPath.startsWith('/reportes') ? 'open' : '' %>>
+      <summary class="nav-section-toggle">
+        <span><i class="bi bi-file-earmark-bar-graph"></i>Reportes</span>
+        <i class="bi bi-chevron-down nav-group-chevron"></i>
+      </summary>
+      <div class="nav-group-items">
+        <a href="/reportes/movimientos" class="nav-item <%= currentPath === '/reportes/movimientos' ? 'active' : '' %>">
+          <i class="bi bi-journal-text"></i><span>Reporte de Movimientos</span>
+        </a>
+        <a href="/reportes/stock" class="nav-item <%= currentPath === '/reportes/stock' ? 'active' : '' %>">
+          <i class="bi bi-clipboard-data"></i><span>Reporte de Stock</span>
+        </a>
+        <% if (userRol && (userRol === 'admin' || userRol === 'gerente')) { %>
+        <a href="/reportes/grafico" class="nav-item <%= currentPath === '/reportes/grafico' ? 'active' : '' %>">
+          <i class="bi bi-bar-chart-fill"></i><span>Graficos</span>
+        </a>
+        <% } %>
+      </div>
+    </details>
+
+    <% if (userRol === 'admin' || userRol === 'encargado_principal') { %>
+    <details class="nav-group" <%= (currentPath.startsWith('/usuarios') || currentPath.startsWith('/insecticidas') || currentPath.startsWith('/lotes') || currentPath.startsWith('/tipos-uso') || currentPath.startsWith('/unidades-medida') || currentPath.startsWith('/logs')) ? 'open' : '' %>>
+      <summary class="nav-section-toggle">
+        <span><i class="bi bi-gear-fill"></i>Administracion</span>
+        <i class="bi bi-chevron-down nav-group-chevron"></i>
+      </summary>
+      <div class="nav-group-items">
+        <% if (userRol === 'admin') { %>
+        <div class="nav-subsection-label">Herramientas del Sistema</div>
+        <a href="/usuarios" class="nav-item <%= currentPath.startsWith('/usuarios') ? 'active' : '' %>">
+          <i class="bi bi-people-fill"></i><span>Usuarios</span>
+        </a>
+        <a href="/logs" class="nav-item <%= currentPath.startsWith('/logs') ? 'active' : '' %>">
+          <i class="bi bi-activity"></i><span>Logs</span>
+        </a>
+        <% } %>
+        <div class="nav-subsection-label">Gestion de Insecticidas</div>
+        <a href="/insecticidas" class="nav-item <%= currentPath.startsWith('/insecticidas') ? 'active' : '' %>">
+          <i class="bi bi-droplet-fill"></i><span>Insecticidas</span>
+        </a>
+        <a href="/lotes" class="nav-item <%= currentPath.startsWith('/lotes') ? 'active' : '' %>">
+          <i class="bi bi-box-seam"></i><span>Lotes</span>
+        </a>
+        <a href="/unidades-medida" class="nav-item <%= currentPath.startsWith('/unidades-medida') ? 'active' : '' %>">
+          <i class="bi bi-rulers"></i><span>Unidades de Medida</span>
+        </a>
+        <% if (userRol === 'admin') { %>
+        <a href="/tipos-uso" class="nav-item <%= currentPath.startsWith('/tipos-uso') ? 'active' : '' %>">
+          <i class="bi bi-tags-fill"></i><span>Tipos de Uso</span>
+        </a>
+        <% } %>
+      </div>
+    </details>
     <% } %>
   </div>
 
   <div class="sidebar-footer">
-    <a href="/perfil" class="nav-item <%= currentPath === '/perfil' ? 'active' : '' %>">
-      <i class="bi bi-person-circle"></i><span>Mi Perfil</span>
-    </a>
-    <a href="/auth/logout" class="nav-item logout-item">
-      <i class="bi bi-box-arrow-left"></i><span>Cerrar Sesión</span>
-    </a>
+    <details class="nav-group nav-group-footer" <%= currentPath === '/perfil' ? 'open' : '' %>>
+      <summary class="nav-section-toggle">
+        <span><i class="bi bi-person-circle"></i>Perfil</span>
+        <i class="bi bi-chevron-down nav-group-chevron"></i>
+      </summary>
+      <div class="nav-group-items">
+        <a href="/perfil" class="nav-item <%= currentPath === '/perfil' ? 'active' : '' %>">
+          <i class="bi bi-person-circle"></i><span>Mi Perfil</span>
+        </a>
+        <a href="/auth/logout" class="nav-item logout-item">
+          <i class="bi bi-box-arrow-left"></i><span>Cerrar Sesion</span>
+        </a>
+      </div>
+    </details>
   </div>
 </nav>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<!-- Main Content -->
 <div class="main-content">
   <header class="top-header">
     <button class="hamburger" id="sidebarToggle"><i class="bi bi-list"></i></button>
     <div class="header-title">
       <h1 class="page-title"><%= title %></h1>
-    </div>
-    <div class="header-actions">
-      <div class="header-date">
-        <i class="bi bi-calendar3 me-1"></i>
-        <span id="currentDate"></span>
-      </div>
-      <% if (userRol !== 'gerente') { %>
-      <a href="/movimientos/nuevo" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Nuevo Mov.
-      </a>
-      <% } %>
     </div>
   </header>
 

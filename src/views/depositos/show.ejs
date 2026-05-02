@@ -53,9 +53,16 @@
             <tbody>
             <% for (const s of stock) { %>
               <% const dias = Math.floor((new Date(s.fecha_vencimiento) - new Date()) / 86400000); %>
+              <% const usos = Array.isArray(s.tipo_usos) && s.tipo_usos.length ? s.tipo_usos : [s.tipo_uso]; %>
               <tr>
                 <td><strong><%= s.insecticida_nombre %></strong></td>
-                <td><span class="badge-tipo-uso badge-<%= s.tipo_uso %>"><%= s.tipo_uso %></span></td>
+                <td>
+                  <div class="d-flex flex-wrap gap-1">
+                    <% for (const uso of usos) { %>
+                    <span class="badge-tipo-uso badge-<%= uso %>"><%= uso %></span>
+                    <% } %>
+                  </div>
+                </td>
                 <td><code><%= s.codigo_lote %></code></td>
                 <td><span class="badge <%= dias < 30 ? 'bg-danger' : dias < 90 ? 'bg-warning text-dark' : 'bg-success' %>"><%= formatearFecha(s.fecha_vencimiento) %></span></td>
                 <td><strong><%= parseFloat(s.cantidad).toFixed(3) %></strong> <small class="text-muted"><%= s.unidad_medida %></small></td>

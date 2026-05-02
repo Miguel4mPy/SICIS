@@ -42,7 +42,7 @@
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
               <input type="text" class="form-control" id="codigo_lote" name="codigo_lote"
-                value="<%= lote.codigo_lote || '' %>" placeholder="Ej: LOT-2025-001" required maxlength="50" <%= esEdicion ? 'readonly' : '' %>>
+                value="<%= lote.codigo_lote || '' %>" placeholder="Ej: LOT-2025-001" required maxlength="50">
             </div>
           </div>
 
@@ -72,6 +72,13 @@
             <label for="observaciones" class="form-label fw-semibold">Observaciones</label>
             <textarea class="form-control" id="observaciones" name="observaciones" rows="3" maxlength="500"><%= lote.observaciones || '' %></textarea>
           </div>
+
+          <% if (esEdicion) { %>
+          <div class="form-check form-switch mb-4">
+            <input class="form-check-input" type="checkbox" id="activo" name="activo" <%= lote.activo ? 'checked' : '' %>>
+            <label class="form-check-label" for="activo">Lote activo</label>
+          </div>
+          <% } %>
 
           <div class="d-flex gap-2 justify-content-end pt-2">
             <a href="/lotes" class="btn btn-outline-secondary">
