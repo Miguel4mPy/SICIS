@@ -83,7 +83,7 @@ exports.index = async (req, res) => {
     const total = Number(countResult.rows[0].count);
 
     const movimientos = await pool.query(`
-      SELECT m.*, i.nombre as insecticida_nombre, i.tipo_uso, i.unidad_medida,
+      SELECT m.*, i.nombre as insecticida_nombre, i.tipo_uso, l.unidad_medida,
         l.codigo_lote, l.fecha_vencimiento,
         dor.nombre as origen_nombre, dor.tipo as origen_tipo,
         dde.nombre as destino_nombre, dde.tipo as destino_tipo,
@@ -124,7 +124,7 @@ exports.new = async (req, res) => {
     const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
     const insecticidas = await pool.query('SELECT * FROM insecticidas WHERE activo = true ORDER BY nombre');
     const lotes = await pool.query(`
-      SELECT l.*, i.nombre as insecticida_nombre, i.tipo_uso, i.unidad_medida
+      SELECT l.*, i.nombre as insecticida_nombre, i.tipo_uso
       FROM lotes l
       JOIN insecticidas i ON l.insecticida_id = i.id
       WHERE l.activo = true AND l.fecha_vencimiento >= CURRENT_DATE
@@ -266,7 +266,7 @@ exports.show = async (req, res) => {
   const { id } = req.params;
   try {
     const mov = await pool.query(`
-      SELECT m.*, i.nombre as insecticida_nombre, i.tipo_uso, i.unidad_medida, l.codigo_lote, l.fecha_vencimiento,
+      SELECT m.*, i.nombre as insecticida_nombre, i.tipo_uso, l.unidad_medida, l.codigo_lote, l.fecha_vencimiento,
         dor.nombre as origen_nombre, dor.codigo as origen_codigo,
         dde.nombre as destino_nombre, dde.codigo as destino_codigo,
         u.nombre || ' ' || u.apellido as usuario_nombre, u.email as usuario_email,
@@ -365,7 +365,7 @@ exports.confirmaciones = async (req, res) => {
     }
 
     const pendientes = await pool.query(`
-      SELECT m.*, i.nombre as insecticida_nombre, i.unidad_medida,
+      SELECT m.*, i.nombre as insecticida_nombre, l.unidad_medida,
         l.codigo_lote, l.fecha_vencimiento,
         dor.nombre as origen_nombre, dor.codigo as origen_codigo,
         dde.nombre as destino_nombre, dde.codigo as destino_codigo,
@@ -441,7 +441,7 @@ exports.getStockPorDeposito = async (req, res) => {
   const { deposito_id } = req.params;
   try {
     const stock = await pool.query(`
-      SELECT s.cantidad, l.id as lote_id, l.codigo_lote, l.fecha_vencimiento, i.unidad_medida
+      SELECT s.cantidad, l.id as lote_id, l.codigo_lote, l.fecha_vencimiento, l.unidad_medida
       FROM stock s
       JOIN lotes l ON s.lote_id = l.id
       JOIN insecticidas i ON l.insecticida_id = i.id

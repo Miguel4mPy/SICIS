@@ -1,15 +1,35 @@
+<%
+  const sortKey = sort || 'tipo';
+  const sortDir = dir || 'asc';
+  const sortUrl = (column) => `/insecticidas?sort=${column}&dir=${sortKey === column && sortDir === 'asc' ? 'desc' : 'asc'}`;
+  const sortIcon = (column) => sortKey === column
+    ? (sortDir === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+    : 'bi-arrow-down-up';
+%>
+
 <div class="page-actions mb-3">
   <% if (userRol === 'admin' || userRol === 'encargado_principal') { %>
   <a href="/insecticidas/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Insecticida</a>
   <% } %>
   <a href="/lotes" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Ver Lotes</a>
 </div>
+
 <div class="card-sicis">
-  <div class="card-sicis-header"><i class="bi bi-droplet-fill me-2"></i>Catálogo de Insecticidas</div>
+  <div class="card-sicis-header"><i class="bi bi-droplet-fill me-2"></i>Catalogo de Insecticidas</div>
   <div class="card-sicis-body p-0">
     <div class="table-responsive">
       <table class="table table-sicis mb-0">
-        <thead><tr><th>Código</th><th>Nombre</th><th>Tipo de Uso</th><th>Unidad</th><th>Lotes</th><th>Stock Total</th><th>Estado</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th><a href="<%= sortUrl('codigo') %>" class="table-sort-link">Codigo <i class="bi <%= sortIcon('codigo') %>"></i></a></th>
+            <th><a href="<%= sortUrl('nombre') %>" class="table-sort-link">Nombre <i class="bi <%= sortIcon('nombre') %>"></i></a></th>
+            <th><a href="<%= sortUrl('tipo') %>" class="table-sort-link">Tipo de Uso <i class="bi <%= sortIcon('tipo') %>"></i></a></th>
+            <th><a href="<%= sortUrl('lotes') %>" class="table-sort-link">Lotes <i class="bi <%= sortIcon('lotes') %>"></i></a></th>
+            <th><a href="<%= sortUrl('stock') %>" class="table-sort-link">Stock Total <i class="bi <%= sortIcon('stock') %>"></i></a></th>
+            <th><a href="<%= sortUrl('estado') %>" class="table-sort-link">Estado <i class="bi <%= sortIcon('estado') %>"></i></a></th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
         <% for (const i of insecticidas) { %>
           <% const usos = Array.isArray(i.tipo_usos) && i.tipo_usos.length ? i.tipo_usos : [i.tipo_uso]; %>
@@ -23,17 +43,16 @@
                 <% } %>
               </div>
             </td>
-            <td><span class="badge bg-light text-dark border"><%= i.unidad_medida %></span></td>
             <td><%= i.total_lotes %></td>
-            <td><strong><%= parseFloat(i.stock_total || 0).toFixed(2) %></strong> <small class="text-muted"><%= i.unidad_medida %></small></td>
+            <td><strong><%= parseFloat(i.stock_total || 0).toFixed(2) %></strong> <small class="text-muted">segun lotes</small></td>
             <td><span class="badge <%= i.activo ? 'bg-success' : 'bg-secondary' %>"><%= i.activo ? 'Activo' : 'Inactivo' %></span></td>
             <td>
-              <div class="btn-group btn-group-sm">
-                <a href="/insecticidas/<%= i.id %>" class="btn btn-outline-primary"><i class="bi bi-eye"></i></a>
+              <div class="table-actions">
+                <a href="/insecticidas/<%= i.id %>" class="btn-action btn-action-view" title="Ver"><i class="bi bi-eye"></i></a>
                 <% if (userRol === 'admin' || userRol === 'encargado_principal') { %>
-                <a href="/insecticidas/<%= i.id %>/editar" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                <form method="POST" action="/insecticidas/<%= i.id %>/eliminar" class="d-inline" onsubmit="return confirm('Eliminar el insecticida <%= i.nombre %>? Tambien se desactivaran sus lotes asociados.')">
-                  <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                <a href="/insecticidas/<%= i.id %>/editar" class="btn-action btn-action-edit" title="Editar"><i class="bi bi-pencil"></i></a>
+                <form method="POST" action="/insecticidas/<%= i.id %>/eliminar" class="d-inline">
+                  <button type="submit" class="btn-action btn-action-delete" title="Eliminar" data-confirm="Eliminar el insecticida <%= i.nombre %>? Tambien se desactivaran sus lotes asociados."><i class="bi bi-trash"></i></button>
                 </form>
                 <% } %>
               </div>

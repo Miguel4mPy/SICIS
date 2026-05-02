@@ -1,7 +1,7 @@
 <div class="page-actions mb-3">
   <a href="/lotes/nuevo" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Lote</a>
 </div>
-<!-- Filtro -->
+
 <div class="card-sicis mb-3">
   <div class="card-sicis-body py-2">
     <form method="GET" class="row g-2 align-items-end">
@@ -17,17 +17,33 @@
         <div class="form-text text-muted">No hay insecticidas con lotes activos.</div>
         <% } %>
       </div>
-      <div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
-      <a href="/lotes" class="btn btn-sm btn-outline-secondary ms-1">Limpiar</a></div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+        <a href="/lotes" class="btn btn-sm btn-outline-secondary ms-1">Limpiar</a>
+      </div>
     </form>
   </div>
 </div>
+
 <div class="card-sicis">
   <div class="card-sicis-header"><i class="bi bi-box-seam me-2"></i>Lotes de Insecticidas</div>
   <div class="card-sicis-body p-0">
     <div class="table-responsive">
       <table class="table table-sicis mb-0">
-        <thead><tr><th>Código Lote</th><th>Insecticida</th><th>Tipo Uso</th><th>F. Fab.</th><th>F. Venc.</th><th>Cant. Inicial</th><th>Stock Total</th><th>Estado Venc.</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Codigo Lote</th>
+            <th>Insecticida</th>
+            <th>Tipo Uso</th>
+            <th>Presentacion</th>
+            <th>F. Fab.</th>
+            <th>F. Venc.</th>
+            <th>Cant. Inicial</th>
+            <th>Stock Total</th>
+            <th>Estado Venc.</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
         <% for (const l of lotes) { %>
           <% const usos = Array.isArray(l.tipo_usos) && l.tipo_usos.length ? l.tipo_usos : [l.tipo_uso]; %>
@@ -41,17 +57,18 @@
                 <% } %>
               </div>
             </td>
+            <td><%= l.presentacion_nombre || l.presentacion_codigo || '-' %></td>
             <td><small><%= formatearFecha(l.fecha_fabricacion) %></small></td>
             <td><%= formatearFecha(l.fecha_vencimiento) %></td>
             <td><%= parseFloat(l.cantidad_inicial).toFixed(2) %> <small><%= l.unidad_medida %></small></td>
-            <td><strong><%= parseFloat(l.stock_total || 0).toFixed(2) %></strong></td>
+            <td><strong><%= parseFloat(l.stock_total || 0).toFixed(2) %></strong> <small><%= l.unidad_medida %></small></td>
             <td><span class="badge bg-<%= l.estadoVenc.clase %>"><%= l.estadoVenc.texto %></span></td>
             <td>
               <% if (userRol === 'admin' || userRol === 'encargado_principal') { %>
               <div class="btn-group btn-group-sm">
                 <a href="/lotes/<%= l.id %>/editar" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                <form method="POST" action="/lotes/<%= l.id %>/eliminar" class="d-inline" onsubmit="return confirm('Eliminar el lote <%= l.codigo_lote %>?')">
-                  <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                <form method="POST" action="/lotes/<%= l.id %>/eliminar" class="d-inline">
+                  <button type="submit" class="btn btn-outline-danger" data-confirm="Eliminar el lote <%= l.codigo_lote %>?"><i class="bi bi-trash"></i></button>
                 </form>
               </div>
               <% } %>

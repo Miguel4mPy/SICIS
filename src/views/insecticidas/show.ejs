@@ -5,6 +5,7 @@
   <% } %>
   <a href="/lotes/nuevo" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus me-1"></i>Nuevo Lote</a>
 </div>
+
 <div class="row g-3">
   <% const usosInsecticida = Array.isArray(insecticida.tipo_usos) && insecticida.tipo_usos.length ? insecticida.tipo_usos : [insecticida.tipo_uso]; %>
   <div class="col-md-4">
@@ -19,13 +20,13 @@
             <% } %>
           </div>
         </div>
-        <div class="detail-group"><div class="detail-label">Código</div><div class="detail-value"><code><%= insecticida.codigo %></code></div></div>
-        <div class="detail-group"><div class="detail-label">Unidad de Medida</div><div class="detail-value"><%= insecticida.unidad_medida %></div></div>
+        <div class="detail-group"><div class="detail-label">Codigo</div><div class="detail-value"><code><%= insecticida.codigo %></code></div></div>
         <div class="detail-group"><div class="detail-label">Estado</div><div class="detail-value"><span class="badge <%= insecticida.activo ? 'bg-success' : 'bg-secondary' %>"><%= insecticida.activo ? 'Activo' : 'Inactivo' %></span></div></div>
-        <% if (insecticida.descripcion) { %><div class="detail-group"><div class="detail-label">Descripción</div><div class="detail-value"><%= insecticida.descripcion %></div></div><% } %>
+        <% if (insecticida.descripcion) { %><div class="detail-group"><div class="detail-label">Descripcion</div><div class="detail-value"><%= insecticida.descripcion %></div></div><% } %>
       </div>
     </div>
   </div>
+
   <div class="col-md-8">
     <div class="card-sicis">
       <div class="card-sicis-header"><i class="bi bi-box-seam me-2"></i>Lotes Registrados</div>
@@ -35,11 +36,22 @@
         <% } else { %>
         <div class="table-responsive">
           <table class="table table-sicis mb-0">
-            <thead><tr><th>Código Lote</th><th>F. Fabricación</th><th>F. Vencimiento</th><th>Cant. Inicial</th><th>Stock</th><th>Estado</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Codigo Lote</th>
+                <th>Presentacion</th>
+                <th>F. Fabricacion</th>
+                <th>F. Vencimiento</th>
+                <th>Cant. Inicial</th>
+                <th>Stock</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
             <tbody>
             <% for (const l of lotes) { %>
               <tr>
                 <td><code><%= l.codigo_lote %></code></td>
+                <td><%= l.presentacion_nombre || l.presentacion_codigo || '-' %></td>
                 <td><small><%= formatearFecha(l.fecha_fabricacion) %></small></td>
                 <td>
                   <span class="badge bg-<%= l.estadoVenc.clase %>">
@@ -47,8 +59,8 @@
                   </span>
                   <small class="text-muted ms-1"><%= l.estadoVenc.texto %></small>
                 </td>
-                <td><%= parseFloat(l.cantidad_inicial).toFixed(2) %></td>
-                <td><strong><%= parseFloat(l.stock_total).toFixed(2) %></strong> <small class="text-muted"><%= insecticida.unidad_medida %></small></td>
+                <td><%= parseFloat(l.cantidad_inicial).toFixed(2) %> <small class="text-muted"><%= l.unidad_medida %></small></td>
+                <td><strong><%= parseFloat(l.stock_total).toFixed(2) %></strong> <small class="text-muted"><%= l.unidad_medida %></small></td>
                 <td><span class="badge <%= l.activo ? 'bg-success' : 'bg-secondary' %>"><%= l.activo ? 'Activo' : 'Inactivo' %></span></td>
               </tr>
             <% } %>

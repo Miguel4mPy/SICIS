@@ -32,34 +32,58 @@ async function getUnidadesMedida(includeInactive = false) {
   return result.rows;
 }
 
+async function getPresentaciones(includeInactive = false) {
+  const where = includeInactive ? '' : 'WHERE activo = true';
+  const result = await pool.query(`
+    SELECT codigo, nombre, activo, orden
+    FROM presentaciones_insecticida
+    ${where}
+    ORDER BY orden, nombre
+  `);
+  return result.rows;
+}
+
 exports.index = async (req, res) => {
+  const sortMap = {
+    codigo: 'i.codigo',
+    nombre: 'i.nombre',
+    tipo: 'i.tipo_uso',
+    lotes: 'total_lotes',
+    stock: 'stock_total',
+    estado: 'i.activo'
+  };
+  const sort = sortMap[req.query.sort] ? req.query.sort : 'tipo';
+  const dir = String(req.query.dir || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc';
+  const orderBy = `${sortMap[sort]} ${dir.toUpperCase()}, i.nombre ASC`;
+
   const insecticidas = await pool.query(`
     SELECT i.*,
       (SELECT COUNT(*) FROM lotes WHERE insecticida_id = i.id AND activo = true) as total_lotes,
       (SELECT COALESCE(SUM(s.cantidad), 0) FROM stock s JOIN lotes l ON s.lote_id = l.id WHERE l.insecticida_id = i.id) as stock_total
-    FROM insecticidas i ORDER BY i.tipo_uso, i.nombre
+    FROM insecticidas i ORDER BY ${orderBy}
   `);
   res.render('insecticidas/index', {
     title: 'Insecticidas',
     insecticidas: insecticidas.rows,
+    sort,
+    dir,
     success: req.flash('success'),
     error: req.flash('error')
   });
 };
 
 exports.new = async (req, res) => {
-  const [tiposUso, unidadesMedida] = await Promise.all([getTiposUso(), getUnidadesMedida()]);
+  const tiposUso = await getTiposUso();
   res.render('insecticidas/form', {
     title: 'Nuevo Insecticida',
     insecticida: {},
     tiposUso,
-    unidadesMedida,
     errors: req.flash('error')
   });
 };
 
 exports.create = async (req, res) => {
-  const { codigo, nombre, unidad_medida, descripcion } = req.body;
+  const { codigo, nombre, descripcion } = req.body;
   const tipoUsos = normalizarTiposUso(req.body.tipo_usos || req.body.tipo_uso);
   if (!tipoUsos.length) {
     req.flash('error', 'Seleccione al menos un tipo de uso.');
@@ -68,8 +92,8 @@ exports.create = async (req, res) => {
 
   try {
     const r = await pool.query(
-      'INSERT INTO insecticidas (codigo, nombre, tipo_uso, tipo_usos, unidad_medida, descripcion) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
-      [codigo, nombre, tipoUsos[0], tipoUsos, unidad_medida, descripcion]
+      'INSERT INTO insecticidas (codigo, nombre, tipo_uso, tipo_usos, descripcion) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [codigo, nombre, tipoUsos[0], tipoUsos, descripcion]
     );
     await auditLog(req, 'CREAR_INSECTICIDA', 'insecticidas', r.rows[0].id, null, req.body);
     req.flash('success', 'Insecticida creado exitosamente.');
@@ -86,9 +110,11 @@ exports.show = async (req, res) => {
   if (!ins.rows[0]) { req.flash('error', 'No encontrado.'); return res.redirect('/insecticidas'); }
 
   const lotes = await pool.query(`
-    SELECT l.*,
+    SELECT l.*, p.nombre as presentacion_nombre,
       COALESCE((SELECT SUM(s.cantidad) FROM stock s WHERE s.lote_id = l.id), 0) as stock_total
-    FROM lotes l WHERE l.insecticida_id = $1 ORDER BY l.fecha_vencimiento
+    FROM lotes l
+    LEFT JOIN presentaciones_insecticida p ON p.codigo = l.presentacion_codigo
+    WHERE l.insecticida_id = $1 ORDER BY l.fecha_vencimiento
   `, [id]);
 
   res.render('insecticidas/show', {
@@ -102,21 +128,21 @@ exports.show = async (req, res) => {
 
 exports.edit = async (req, res) => {
   const ins = await pool.query('SELECT * FROM insecticidas WHERE id = $1', [req.params.id]);
-  const [tiposUso, unidadesMedida] = await Promise.all([getTiposUso(true), getUnidadesMedida(true)]);
-  res.render('insecticidas/form', { title: 'Editar Insecticida', insecticida: ins.rows[0] || {}, tiposUso, unidadesMedida, errors: req.flash('error') });
+  const tiposUso = await getTiposUso(true);
+  res.render('insecticidas/form', { title: 'Editar Insecticida', insecticida: ins.rows[0] || {}, tiposUso, errors: req.flash('error') });
 };
 
 exports.update = async (req, res) => {
   const { id } = req.params;
-  const { codigo, nombre, unidad_medida, descripcion, activo } = req.body;
+  const { codigo, nombre, descripcion, activo } = req.body;
   const tipoUsos = normalizarTiposUso(req.body.tipo_usos || req.body.tipo_uso);
   if (!tipoUsos.length) {
     req.flash('error', 'Seleccione al menos un tipo de uso.');
     return res.redirect(`/insecticidas/${id}/editar`);
   }
 
-  await pool.query('UPDATE insecticidas SET codigo=$1, nombre=$2, tipo_uso=$3, tipo_usos=$4, unidad_medida=$5, descripcion=$6, activo=$7 WHERE id=$8',
-    [codigo, nombre, tipoUsos[0], tipoUsos, unidad_medida, descripcion, activo === 'on', id]);
+  await pool.query('UPDATE insecticidas SET codigo=$1, nombre=$2, tipo_uso=$3, tipo_usos=$4, descripcion=$5, activo=$6 WHERE id=$7',
+    [codigo, nombre, tipoUsos[0], tipoUsos, descripcion, activo === 'on', id]);
   req.flash('success', 'Insecticida actualizado.');
   res.redirect('/insecticidas');
 };
@@ -187,7 +213,7 @@ exports.unidadesIndex = async (req, res) => {
   const unidades = await getUnidadesMedida(true);
   const usos = await pool.query(`
     SELECT unidad_medida, COUNT(*) as total
-    FROM insecticidas
+    FROM lotes
     GROUP BY unidad_medida
   `);
   const totalPorUnidad = Object.fromEntries(usos.rows.map(r => [r.unidad_medida, Number(r.total)]));
@@ -266,6 +292,87 @@ exports.unidadesDelete = async (req, res) => {
   res.redirect('/unidades-medida');
 };
 
+exports.presentacionesIndex = async (req, res) => {
+  const presentaciones = await getPresentaciones(true);
+  const usos = await pool.query(`
+    SELECT presentacion_codigo, COUNT(*) as total
+    FROM lotes
+    WHERE presentacion_codigo IS NOT NULL
+    GROUP BY presentacion_codigo
+  `);
+  const totalPorPresentacion = Object.fromEntries(usos.rows.map(r => [r.presentacion_codigo, Number(r.total)]));
+
+  res.render('insecticidas/presentaciones', {
+    title: 'Presentaciones',
+    presentaciones,
+    totalPorPresentacion,
+    success: req.flash('success'),
+    error: req.flash('error')
+  });
+};
+
+exports.presentacionesCreate = async (req, res) => {
+  const { codigo, nombre, orden } = req.body;
+  try {
+    const code = String(codigo || '').trim().toLowerCase();
+    if (!code || !/^[a-z0-9_-]{1,30}$/.test(code)) {
+      throw new Error('El codigo debe tener solo letras, numeros, guion o guion bajo.');
+    }
+    if (!String(nombre || '').trim()) {
+      throw new Error('El nombre es obligatorio.');
+    }
+
+    const r = await pool.query(`
+      INSERT INTO presentaciones_insecticida (codigo, nombre, orden, activo)
+      VALUES ($1, $2, $3, true)
+      RETURNING codigo
+    `, [code, nombre.trim(), parseInt(orden, 10) || 0]);
+
+    await auditLog(req, 'CREAR_PRESENTACION_INSECTICIDA', 'presentaciones_insecticida', null, null, req.body);
+    req.flash('success', `Presentacion ${r.rows[0].codigo} creada.`);
+  } catch (err) {
+    req.flash('error', err.detail || err.message || 'Error al crear presentacion.');
+  }
+  res.redirect('/presentaciones');
+};
+
+exports.presentacionesUpdate = async (req, res) => {
+  const { codigo } = req.params;
+  const { nombre, orden, activo } = req.body;
+  try {
+    if (!String(nombre || '').trim()) throw new Error('El nombre es obligatorio.');
+    const old = await pool.query('SELECT * FROM presentaciones_insecticida WHERE codigo = $1', [codigo]);
+    if (!old.rows[0]) throw new Error('Presentacion no encontrada.');
+
+    await pool.query(`
+      UPDATE presentaciones_insecticida
+      SET nombre = $1, orden = $2, activo = $3, updated_at = NOW()
+      WHERE codigo = $4
+    `, [nombre.trim(), parseInt(orden, 10) || 0, activo === 'on', codigo]);
+
+    await auditLog(req, 'EDITAR_PRESENTACION_INSECTICIDA', 'presentaciones_insecticida', null, old.rows[0], req.body);
+    req.flash('success', 'Presentacion actualizada.');
+  } catch (err) {
+    req.flash('error', err.message || 'Error al actualizar presentacion.');
+  }
+  res.redirect('/presentaciones');
+};
+
+exports.presentacionesDelete = async (req, res) => {
+  const { codigo } = req.params;
+  try {
+    const old = await pool.query('SELECT * FROM presentaciones_insecticida WHERE codigo = $1', [codigo]);
+    if (!old.rows[0]) throw new Error('Presentacion no encontrada.');
+
+    await pool.query('UPDATE presentaciones_insecticida SET activo = false, updated_at = NOW() WHERE codigo = $1', [codigo]);
+    await auditLog(req, 'ELIMINAR_PRESENTACION_INSECTICIDA', 'presentaciones_insecticida', null, old.rows[0], { activo: false });
+    req.flash('success', 'Presentacion desactivada.');
+  } catch (err) {
+    req.flash('error', err.message || 'Error al eliminar presentacion.');
+  }
+  res.redirect('/presentaciones');
+};
+
 // LOTES
 exports.lotesIndex = async (req, res) => {
   let { insecticida_id } = req.query;
@@ -283,9 +390,10 @@ exports.lotesIndex = async (req, res) => {
   }
 
   let query = `
-    SELECT l.*, i.nombre as insecticida_nombre, i.tipo_uso, i.tipo_usos, i.unidad_medida,
+    SELECT l.*, i.nombre as insecticida_nombre, i.tipo_uso, i.tipo_usos, p.nombre as presentacion_nombre,
       COALESCE((SELECT SUM(s.cantidad) FROM stock s WHERE s.lote_id = l.id), 0) as stock_total
     FROM lotes l JOIN insecticidas i ON l.insecticida_id = i.id
+    LEFT JOIN presentaciones_insecticida p ON p.codigo = l.presentacion_codigo
   `;
   const params = [];
   const where = ['l.activo = true', 'i.activo = true'];
@@ -307,23 +415,29 @@ exports.lotesIndex = async (req, res) => {
 };
 
 exports.loteNew = async (req, res) => {
-  const insecticidas = await pool.query('SELECT id, codigo, nombre FROM insecticidas WHERE activo = true ORDER BY nombre');
+  const [insecticidas, unidadesMedida, presentaciones] = await Promise.all([
+    pool.query('SELECT id, codigo, nombre FROM insecticidas WHERE activo = true ORDER BY nombre'),
+    getUnidadesMedida(),
+    getPresentaciones()
+  ]);
   res.render('lotes/form', {
     title: 'Nuevo Lote',
     lote: {},
     insecticidas: insecticidas.rows,
+    unidadesMedida,
+    presentaciones,
     errors: req.flash('error')
   });
 };
 
 exports.loteCreate = async (req, res) => {
-  const { codigo_lote, insecticida_id, fecha_fabricacion, fecha_vencimiento, cantidad_inicial, observaciones } = req.body;
+  const { codigo_lote, insecticida_id, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, cantidad_inicial, observaciones } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const r = await client.query(
-      'INSERT INTO lotes (codigo_lote, insecticida_id, fecha_fabricacion, fecha_vencimiento, cantidad_inicial, observaciones) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
-      [codigo_lote, insecticida_id, fecha_fabricacion || null, fecha_vencimiento, parseFloat(cantidad_inicial), observaciones]
+      'INSERT INTO lotes (codigo_lote, insecticida_id, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, cantidad_inicial, observaciones) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+      [codigo_lote, insecticida_id, unidad_medida, presentacion_codigo || null, fecha_fabricacion || null, fecha_vencimiento, parseFloat(cantidad_inicial), observaciones]
     );
     await client.query('COMMIT');
     await auditLog(req, 'CREAR_LOTE', 'lotes', r.rows[0].id, null, req.body);
@@ -340,15 +454,19 @@ exports.loteCreate = async (req, res) => {
 
 exports.loteEdit = async (req, res) => {
   const lote = await pool.query('SELECT * FROM lotes WHERE id=$1', [req.params.id]);
-  const insecticidas = await pool.query('SELECT id, codigo, nombre FROM insecticidas WHERE activo = true ORDER BY nombre');
-  res.render('lotes/form', { title: 'Editar Lote', lote: lote.rows[0] || {}, insecticidas: insecticidas.rows, errors: req.flash('error') });
+  const [insecticidas, unidadesMedida, presentaciones] = await Promise.all([
+    pool.query('SELECT id, codigo, nombre FROM insecticidas WHERE activo = true ORDER BY nombre'),
+    getUnidadesMedida(true),
+    getPresentaciones(true)
+  ]);
+  res.render('lotes/form', { title: 'Editar Lote', lote: lote.rows[0] || {}, insecticidas: insecticidas.rows, unidadesMedida, presentaciones, errors: req.flash('error') });
 };
 
 exports.loteUpdate = async (req, res) => {
   const { id } = req.params;
-  const { codigo_lote, fecha_fabricacion, fecha_vencimiento, observaciones, activo } = req.body;
-  await pool.query('UPDATE lotes SET codigo_lote=$1, fecha_fabricacion=$2, fecha_vencimiento=$3, observaciones=$4, activo=$5 WHERE id=$6',
-    [codigo_lote, fecha_fabricacion || null, fecha_vencimiento, observaciones, activo === 'on', id]);
+  const { codigo_lote, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones, activo } = req.body;
+  await pool.query('UPDATE lotes SET codigo_lote=$1, unidad_medida=$2, presentacion_codigo=$3, fecha_fabricacion=$4, fecha_vencimiento=$5, observaciones=$6, activo=$7 WHERE id=$8',
+    [codigo_lote, unidad_medida, presentacion_codigo || null, fecha_fabricacion || null, fecha_vencimiento, observaciones, activo === 'on', id]);
   req.flash('success', 'Lote actualizado.');
   res.redirect('/lotes');
 };

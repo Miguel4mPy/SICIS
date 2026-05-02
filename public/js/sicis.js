@@ -307,6 +307,30 @@ function initPartialNavigation() {
   window.sicisNavigate = (href) => loadPage(new URL(href, window.location.href), true);
 }
 
+function initIdleLogout() {
+  const timeoutMs = Number(window.SICIS_IDLE_TIMEOUT_MS || 0);
+  if (!timeoutMs || window.SICIS_IDLE_LOGOUT_BOUND) return;
+  window.SICIS_IDLE_LOGOUT_BOUND = true;
+
+  let timerId;
+  const activityEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+
+  function logoutByIdle() {
+    window.location.href = '/auth/logout?timeout=1';
+  }
+
+  function resetTimer() {
+    clearTimeout(timerId);
+    timerId = setTimeout(logoutByIdle, timeoutMs);
+  }
+
+  activityEvents.forEach(eventName => {
+    document.addEventListener(eventName, resetTimer, { passive: true });
+  });
+
+  resetTimer();
+}
+
 window.imprimirReporte = function () {
   window.print();
 };
@@ -315,3 +339,4 @@ initSidebarShell();
 initTopbarClock();
 initPartialNavigation();
 initSicisContent(document);
+initIdleLogout();

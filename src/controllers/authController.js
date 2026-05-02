@@ -7,6 +7,7 @@ const { auditLog } = require('../middleware/auth');
 const MAX_INTENTOS = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5;
 const LOCKOUT_MIN = parseInt(process.env.LOCKOUT_DURATION_MINUTES) || 30;
 const TOKEN_HOURS = parseInt(process.env.PASSWORD_TOKEN_HOURS) || 24;
+const SESSION_ABANDONED_MIN = parseInt(process.env.SESSION_ABANDONED_MINUTES, 10) || 15;
 
 function tokenExpiry() {
   return new Date(Date.now() + TOKEN_HOURS * 60 * 60 * 1000);
@@ -14,6 +15,18 @@ function tokenExpiry() {
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function regenerateSession(req) {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate(err => (err ? reject(err) : resolve()));
+  });
+}
+
+function destroySession(req) {
+  return new Promise(resolve => {
+    req.session.destroy(() => resolve());
+  });
 }
 
 exports.createPasswordToken = async function createPasswordToken(userId) {
@@ -27,11 +40,19 @@ exports.createPasswordToken = async function createPasswordToken(userId) {
 
 exports.getLogin = (req, res) => {
   if (req.session.userId && req.session.authenticated) return res.redirect('/dashboard');
+  const errors = req.flash('error');
+  const success = req.flash('success');
+  if (req.query.session === 'invalid') {
+    errors.push('Su sesion ya no es valida porque existe otra sesion activa.');
+  }
+  if (req.query.timeout === '1') {
+    errors.push('Su sesion fue cerrada por inactividad.');
+  }
   res.render('auth/login', {
     title: 'Iniciar Sesion',
     layout: 'layouts/auth',
-    errors: req.flash('error'),
-    success: req.flash('success')
+    errors,
+    success
   });
 };
 
@@ -74,9 +95,34 @@ exports.postLogin = async (req, res) => {
       return res.redirect('/auth/login');
     }
 
+    const sesionActivaReciente = user.active_session_id
+      && user.active_session_last_seen_at
+      && new Date(user.active_session_last_seen_at).getTime() > Date.now() - (SESSION_ABANDONED_MIN * 60000);
+
+    if (sesionActivaReciente && user.active_session_id !== req.sessionID) {
+      req.flash('error', `Tu usuario ya tiene una sesion iniciada. Vuelva a intentar mas tarde o cierre la sesion anterior.`);
+      await auditLog(req, 'LOGIN_BLOQUEADO_SESION_ACTIVA', 'usuarios', user.id, null, {
+        email: user.email,
+        active_session_last_seen_at: user.active_session_last_seen_at
+      });
+      return res.redirect('/auth/login');
+    }
+
+    await regenerateSession(req);
+
     await pool.query(
-      'UPDATE usuarios SET intentos_fallidos = 0, bloqueado = false, bloqueado_hasta = NULL, ultimo_acceso = NOW() WHERE id = $1',
-      [user.id]
+      `UPDATE usuarios
+       SET intentos_fallidos = 0,
+           bloqueado = false,
+           bloqueado_hasta = NULL,
+           ultimo_acceso = NOW(),
+           active_session_id = $2,
+           active_session_started_at = NOW(),
+           active_session_last_seen_at = NOW(),
+           active_session_ip = $3,
+           active_session_user_agent = $4
+       WHERE id = $1`,
+      [user.id, req.sessionID, req.ip, req.get('user-agent')]
     );
 
     req.session.userId = user.id;
@@ -95,8 +141,22 @@ exports.postLogin = async (req, res) => {
 
 exports.logout = async (req, res) => {
   const userId = req.session.userId;
-  if (userId) await auditLog(req, 'LOGOUT', 'usuarios', userId, null, null);
-  req.session.destroy(() => res.redirect('/auth/login'));
+  const sessionId = req.sessionID;
+  if (userId) {
+    await auditLog(req, 'LOGOUT', 'usuarios', userId, null, null);
+    await pool.query(`
+      UPDATE usuarios
+      SET active_session_id = NULL,
+          active_session_started_at = NULL,
+          active_session_last_seen_at = NULL,
+          active_session_ip = NULL,
+          active_session_user_agent = NULL
+      WHERE id = $1 AND active_session_id = $2
+    `, [userId, sessionId]);
+  }
+  const timeout = req.query.timeout === '1';
+  await destroySession(req);
+  res.redirect(timeout ? '/auth/login?timeout=1' : '/auth/login');
 };
 
 exports.getForgotPassword = (req, res) => {
@@ -180,7 +240,12 @@ exports.postResetPassword = async (req, res) => {
     await pool.query(
       `UPDATE usuarios
        SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL,
-           intentos_fallidos = 0, bloqueado = false, bloqueado_hasta = NULL
+           intentos_fallidos = 0, bloqueado = false, bloqueado_hasta = NULL,
+           active_session_id = NULL,
+           active_session_started_at = NULL,
+           active_session_last_seen_at = NULL,
+           active_session_ip = NULL,
+           active_session_user_agent = NULL
        WHERE id = $2`,
       [hash, result.rows[0].id]
     );

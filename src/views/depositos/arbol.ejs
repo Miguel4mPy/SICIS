@@ -50,15 +50,97 @@
     <% if (depositos.length === 0) { %>
       <p class="text-muted text-center py-4 mb-0">No hay depositos activos para mostrar.</p>
     <% } else { %>
-      <div class="org-chart-wrap">
-        <div class="org-chart">
-          <ul>
-            <% for (const r of raices) { %>
-              <%- renderNodo(r) %>
-            <% } %>
-          </ul>
+      <div class="org-chart-toolbar" data-org-toolbar>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-org-zoom-out title="Alejar">
+          <i class="bi bi-zoom-out"></i>
+        </button>
+        <span class="org-chart-zoom-label" data-org-zoom-label>100%</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-org-zoom-in title="Acercar">
+          <i class="bi bi-zoom-in"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-primary" data-org-zoom-fit title="Ajustar">
+          <i class="bi bi-arrows-fullscreen me-1"></i>Ajustar
+        </button>
+      </div>
+
+      <div class="org-chart-wrap" data-org-chart-wrap>
+        <div class="org-chart-canvas" data-org-chart-canvas>
+          <div class="org-chart" data-org-chart>
+            <ul>
+              <% for (const r of raices) { %>
+                <%- renderNodo(r) %>
+              <% } %>
+            </ul>
+          </div>
         </div>
       </div>
+
+      <script>
+      (() => {
+        const root = document.currentScript.closest('.card-sicis-body');
+        const wrap = root?.querySelector('[data-org-chart-wrap]');
+        const canvas = root?.querySelector('[data-org-chart-canvas]');
+        const chart = root?.querySelector('[data-org-chart]');
+        const label = root?.querySelector('[data-org-zoom-label]');
+        const zoomIn = root?.querySelector('[data-org-zoom-in]');
+        const zoomOut = root?.querySelector('[data-org-zoom-out]');
+        const zoomFit = root?.querySelector('[data-org-zoom-fit]');
+        if (!wrap || !canvas || !chart) return;
+
+        const minZoom = 0.1;
+        const maxZoom = 1.6;
+        const step = 0.0125;
+        let zoom = 1;
+
+        function clamp(value) {
+          return Math.max(minZoom, Math.min(maxZoom, value));
+        }
+
+        function measureChart() {
+          const rect = chart.getBoundingClientRect();
+          const previousTransform = chart.style.transform;
+          chart.style.transform = 'scale(1)';
+          const width = chart.scrollWidth || rect.width || 1;
+          const height = chart.scrollHeight || rect.height || 1;
+          chart.style.transform = previousTransform;
+          return { width, height };
+        }
+
+        function applyZoom(nextZoom, center = true) {
+          zoom = clamp(nextZoom);
+          const size = measureChart();
+          chart.style.transform = `scale(${zoom})`;
+          canvas.style.width = `${Math.ceil(size.width * zoom)}px`;
+          canvas.style.height = `${Math.ceil(size.height * zoom)}px`;
+          if (label) label.textContent = `${Math.round(zoom * 100)}%`;
+
+          if (center) {
+            wrap.scrollLeft = 0;
+            wrap.scrollTop = 0;
+          }
+        }
+
+        function fitChart() {
+          const size = measureChart();
+          const horizontal = (wrap.clientWidth - 24) / Math.max(size.width, 1);
+          const vertical = (Math.max(window.innerHeight - wrap.getBoundingClientRect().top - 32, 260)) / Math.max(size.height, 1);
+          applyZoom(Math.min(1, horizontal, vertical), true);
+        }
+
+        zoomIn?.addEventListener('click', () => applyZoom(zoom + step, false));
+        zoomOut?.addEventListener('click', () => applyZoom(zoom - step, false));
+        zoomFit?.addEventListener('click', fitChart);
+        wrap.addEventListener('wheel', (event) => {
+          if (!event.ctrlKey) return;
+          event.preventDefault();
+          const direction = event.deltaY < 0 ? 1 : -1;
+          applyZoom(zoom + (direction * step), false);
+        }, { passive: false });
+        window.addEventListener('resize', fitChart, { passive: true });
+
+        requestAnimationFrame(fitChart);
+      })();
+      </script>
     <% } %>
   </div>
 </div>

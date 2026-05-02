@@ -16,17 +16,18 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       pool.query(`SELECT tipo_movimiento, COUNT(*) as total, SUM(cantidad) as total_cant
         FROM movimientos WHERE estado != 'anulado' AND fecha_movimiento >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY tipo_movimiento`),
-      pool.query(`SELECT i.id, i.codigo, i.nombre, i.unidad_medida, i.tipo_uso,
+      pool.query(`SELECT i.id, i.codigo, i.nombre, l.unidad_medida, i.tipo_uso,
           COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]) as tipo_usos,
           SUM(s.cantidad) as total
         FROM stock s JOIN lotes l ON s.lote_id = l.id JOIN insecticidas i ON l.insecticida_id = i.id
         WHERE s.cantidad > 0
-        GROUP BY i.id, i.codigo, i.nombre, i.unidad_medida, i.tipo_uso, i.tipo_usos
-        ORDER BY i.nombre`),
+        GROUP BY i.id, i.codigo, i.nombre, l.unidad_medida, i.tipo_uso, i.tipo_usos
+        ORDER BY i.nombre, l.unidad_medida`),
       pool.query("SELECT tipo, COUNT(*) as total FROM depositos WHERE activo = true GROUP BY tipo"),
-      pool.query(`SELECT m.id, m.numero_mov, m.tipo_movimiento, m.cantidad, m.fecha_movimiento, i.nombre as ins_nombre, i.unidad_medida,
+      pool.query(`SELECT m.id, m.numero_mov, m.tipo_movimiento, m.cantidad, m.fecha_movimiento, i.nombre as ins_nombre, l.unidad_medida,
         dor.nombre as origen, dde.nombre as destino, u.nombre || ' ' || u.apellido as usuario
         FROM movimientos m JOIN insecticidas i ON m.insecticida_id = i.id
+        JOIN lotes l ON m.lote_id = l.id
         LEFT JOIN depositos dor ON m.deposito_origen_id = dor.id
         LEFT JOIN depositos dde ON m.deposito_destino_id = dde.id
         JOIN usuarios u ON m.usuario_id = u.id
@@ -74,6 +75,10 @@ router.get('/unidades-medida', requireAuth, requireRole('admin', 'encargado_prin
 router.post('/unidades-medida', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.unidadesCreate);
 router.post('/unidades-medida/:codigo', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.unidadesUpdate);
 router.post('/unidades-medida/:codigo/eliminar', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.unidadesDelete);
+router.get('/presentaciones', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.presentacionesIndex);
+router.post('/presentaciones', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.presentacionesCreate);
+router.post('/presentaciones/:codigo', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.presentacionesUpdate);
+router.post('/presentaciones/:codigo/eliminar', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.presentacionesDelete);
 router.get('/insecticidas', requireAuth, insecticidasCtrl.index);
 router.get('/insecticidas/nuevo', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.new);
 router.post('/insecticidas', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.create);

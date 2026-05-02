@@ -15,7 +15,7 @@
           <label class="form-label required">Nombre del Insecticida</label>
           <input type="text" name="nombre" class="form-control" value="<%= insecticida.nombre || '' %>" required>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-12">
           <label class="form-label required">Tipos de Uso</label>
           <% const tiposSeleccionados = Array.isArray(insecticida.tipo_usos) && insecticida.tipo_usos.length ? insecticida.tipo_usos : (insecticida.tipo_uso ? [insecticida.tipo_uso] : []); %>
           <div class="tipo-uso-options">
@@ -27,14 +27,6 @@
             <% } %>
           </div>
           <div class="form-text">Puede seleccionar uno o varios usos para el mismo insecticida.</div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label required">Unidad de Medida</label>
-          <select name="unidad_medida" class="form-select" required>
-            <% for (const u of (unidadesMedida || []).filter(x => x.activo || insecticida.unidad_medida === x.codigo)) { %>
-            <option value="<%= u.codigo %>" <%= insecticida.unidad_medida === u.codigo ? 'selected' : '' %>><%= u.nombre %> (<%= u.abreviatura %>)</option>
-            <% } %>
-          </select>
         </div>
         <div class="col-12">
           <label class="form-label">Descripción</label>

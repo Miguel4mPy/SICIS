@@ -157,7 +157,7 @@ exports.show = async (req, res) => {
     const hijos = await pool.query('SELECT * FROM depositos WHERE deposito_padre_id = $1 AND activo = true ORDER BY nombre', [id]);
 
     const stock = await pool.query(`
-      SELECT s.cantidad, i.nombre as insecticida_nombre, i.tipo_uso, i.tipo_usos, i.unidad_medida,
+      SELECT s.cantidad, i.nombre as insecticida_nombre, i.tipo_uso, i.tipo_usos, l.unidad_medida,
         l.codigo_lote, l.fecha_vencimiento, ins.id as insecticida_id
       FROM stock s
       JOIN lotes l ON s.lote_id = l.id

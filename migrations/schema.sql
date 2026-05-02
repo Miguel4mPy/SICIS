@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
   ultimo_acceso TIMESTAMPTZ,
   password_reset_token VARCHAR(255),
   password_reset_expires TIMESTAMPTZ,
+  active_session_id VARCHAR(255),
+  active_session_started_at TIMESTAMPTZ,
+  active_session_last_seen_at TIMESTAMPTZ,
+  active_session_ip INET,
+  active_session_user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -51,6 +56,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
 ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
 ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
   CHECK (rol IN ('admin', 'operador', 'gerente', 'encargado', 'encargado_principal'));
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_id VARCHAR(255);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_started_at TIMESTAMPTZ;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_last_seen_at TIMESTAMPTZ;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_ip INET;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_user_agent TEXT;
 
 -- Relación usuario-depósito (un operador puede tener varios depósitos)
 CREATE TABLE IF NOT EXISTS usuario_depositos (
@@ -92,6 +102,24 @@ VALUES
   ('ml', 'Mililitro', 'ml', 3),
   ('gr', 'Gramo', 'gr', 4),
   ('unidad', 'Unidad', 'unidad', 5)
+ON CONFLICT (codigo) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS presentaciones_insecticida (
+  codigo VARCHAR(30) PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  activo BOOLEAN DEFAULT TRUE,
+  orden INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO presentaciones_insecticida (codigo, nombre, orden)
+VALUES
+  ('bidon_1_litro', 'Bidon de 1 litro', 1),
+  ('bidon_20_litros', 'Bidon de 20 litros', 2),
+  ('polvo', 'Polvo', 3),
+  ('capsulas', 'Capsulas', 4),
+  ('pastillas', 'Pastillas', 5)
 ON CONFLICT (codigo) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS insecticidas (
@@ -145,6 +173,8 @@ CREATE TABLE IF NOT EXISTS lotes (
   id SERIAL PRIMARY KEY,
   codigo_lote VARCHAR(50) UNIQUE NOT NULL,
   insecticida_id INTEGER NOT NULL REFERENCES insecticidas(id),
+  unidad_medida VARCHAR(20) NOT NULL DEFAULT 'litro',
+  presentacion_codigo VARCHAR(30) REFERENCES presentaciones_insecticida(codigo),
   fecha_fabricacion DATE,
   fecha_vencimiento DATE NOT NULL,
   cantidad_inicial DECIMAL(12,3) NOT NULL,
@@ -153,6 +183,12 @@ CREATE TABLE IF NOT EXISTS lotes (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE lotes ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(20) NOT NULL DEFAULT 'litro';
+ALTER TABLE lotes ADD COLUMN IF NOT EXISTS presentacion_codigo VARCHAR(30);
+ALTER TABLE lotes DROP CONSTRAINT IF EXISTS lotes_presentacion_codigo_fkey;
+ALTER TABLE lotes ADD CONSTRAINT lotes_presentacion_codigo_fkey
+  FOREIGN KEY (presentacion_codigo) REFERENCES presentaciones_insecticida(codigo);
 
 -- ============================================================
 -- STOCK POR DEPOSITO Y LOTE
@@ -260,6 +296,7 @@ DROP TRIGGER IF EXISTS trg_usuarios_updated ON usuarios;
 DROP TRIGGER IF EXISTS trg_insecticidas_updated ON insecticidas;
 DROP TRIGGER IF EXISTS trg_lotes_updated ON lotes;
 DROP TRIGGER IF EXISTS trg_movimientos_updated ON movimientos;
+DROP TRIGGER IF EXISTS trg_presentaciones_insecticida_updated ON presentaciones_insecticida;
 
 CREATE TRIGGER trg_depositos_updated BEFORE UPDATE ON depositos FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_usuarios_updated BEFORE UPDATE ON usuarios FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -268,6 +305,7 @@ CREATE TRIGGER trg_lotes_updated BEFORE UPDATE ON lotes FOR EACH ROW EXECUTE FUN
 CREATE TRIGGER trg_movimientos_updated BEFORE UPDATE ON movimientos FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS trg_tipos_uso_insecticida_updated ON tipos_uso_insecticida;
 CREATE TRIGGER trg_tipos_uso_insecticida_updated BEFORE UPDATE ON tipos_uso_insecticida FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_presentaciones_insecticida_updated BEFORE UPDATE ON presentaciones_insecticida FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Función para calcular semana epidemiológica (semana del año comenzando en domingo)
 CREATE OR REPLACE FUNCTION semana_epidemiologica(fecha DATE)

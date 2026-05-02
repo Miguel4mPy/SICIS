@@ -111,7 +111,7 @@ exports.movimientos = async (req, res) => {
     const [rows, insecticidas, lotes] = await Promise.all([
       pool.query(`
         SELECT m.*, m."año_epidemiologico" as anio_epidemiologico,
-          i.nombre as insecticida_nombre, i.tipo_uso, i.unidad_medida,
+          i.nombre as insecticida_nombre, i.tipo_uso, l.unidad_medida,
           l.codigo_lote, l.fecha_vencimiento,
           dor.nombre as origen_nombre, dor.tipo as origen_tipo,
           dde.nombre as destino_nombre, dde.tipo as destino_tipo,
@@ -184,7 +184,7 @@ exports.stock = async (req, res) => {
     const [rows, insecticidas] = await Promise.all([
       pool.query(`
         SELECT d.codigo as deposito_codigo, d.nombre as deposito_nombre, d.tipo as deposito_tipo, d.nivel,
-          i.nombre as insecticida_nombre, i.tipo_uso, i.unidad_medida,
+          i.nombre as insecticida_nombre, i.tipo_uso, l.unidad_medida,
           l.codigo_lote, l.fecha_vencimiento, s.cantidad, s.updated_at
         FROM stock s
         JOIN depositos d ON s.deposito_id = d.id

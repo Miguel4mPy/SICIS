@@ -62,7 +62,7 @@
           <tr>
             <td><code><%= d.codigo %></code></td>
             <td><a href="/depositos/<%= d.id %>" class="link-sicis fw-bold"><%= d.nombre %></a></td>
-            <td><span class="badge-nivel-<%= d.nivel %>"><%= tipoDepositoLabel(d.tipo) %></span></td>
+            <td><span class="deposito-type-pill deposito-type-n<%= d.nivel %>"><i class="bi bi-building"></i><%= tipoDepositoLabel(d.tipo) %></span></td>
             <td><span class="nivel-badge nivel-<%= d.nivel %>">N<%= d.nivel %></span></td>
             <td class="text-muted"><small><%= d.padre_nombre || '-' %></small></td>
             <td><small><%= d.departamento || '-' %></small></td>
@@ -70,12 +70,12 @@
             <td><span class="badge bg-secondary"><%= d.hijos_count %></span></td>
             <td><span class="badge <%= d.activo ? 'bg-success' : 'bg-secondary' %>"><%= d.activo ? 'Activo' : 'Inactivo' %></span></td>
             <td>
-              <div class="btn-group btn-group-sm">
-                <a href="/depositos/<%= d.id %>" class="btn btn-outline-primary"><i class="bi bi-eye"></i></a>
+              <div class="table-actions">
+                <a href="/depositos/<%= d.id %>" class="btn-action btn-action-view" title="Ver"><i class="bi bi-eye"></i></a>
                 <% if (userRol === 'admin') { %>
-                <a href="/depositos/<%= d.id %>/editar" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                <form method="POST" action="/depositos/<%= d.id %>/eliminar" class="d-inline" onsubmit="return confirm('Eliminar el deposito <%= d.nombre %>?')">
-                  <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                <a href="/depositos/<%= d.id %>/editar" class="btn-action btn-action-edit" title="Editar"><i class="bi bi-pencil"></i></a>
+                <form method="POST" action="/depositos/<%= d.id %>/eliminar" class="d-inline">
+                  <button type="submit" class="btn-action btn-action-delete" title="Eliminar" data-confirm="Eliminar el deposito <%= d.nombre %>?"><i class="bi bi-trash"></i></button>
                 </form>
                 <% } %>
               </div>

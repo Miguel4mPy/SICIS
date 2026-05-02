@@ -1,0 +1,94 @@
+<div class="page-header">
+  <div>
+    <h1 class="page-title"><i class="bi bi-box2-heart me-2"></i>Presentaciones</h1>
+    <p class="text-muted mb-0">Catalogo de presentaciones usadas al registrar lotes.</p>
+  </div>
+</div>
+
+<% if (success && success.length) { %>
+<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i><%= success[0] %></div>
+<% } %>
+<% if (error && error.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %></div>
+<% } %>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card-sicis">
+      <div class="card-sicis-header"><i class="bi bi-plus-circle me-2"></i>Nueva Presentacion</div>
+      <div class="card-sicis-body">
+        <form method="POST" action="/presentaciones">
+          <div class="mb-3">
+            <label class="form-label required">Codigo</label>
+            <input name="codigo" class="form-control" required maxlength="30" placeholder="ej: bidon_20_litros">
+            <div class="form-text">Solo letras, numeros, guion o guion bajo. No se edita luego.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Nombre</label>
+            <input name="nombre" class="form-control" required maxlength="100" placeholder="Bidon de 20 litros">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Orden</label>
+            <input type="number" name="orden" class="form-control" value="0" step="1">
+          </div>
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="bi bi-check-circle me-1"></i>Crear presentacion
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card-sicis">
+      <div class="card-sicis-header"><i class="bi bi-box2-heart me-2"></i>Catalogo de Presentaciones</div>
+      <div class="card-sicis-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sicis unidades-table mb-0">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Nombre</th>
+                <th>Orden</th>
+                <th>Uso</th>
+                <th>Activo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% for (const p of presentaciones) { %>
+              <% const formId = `presentacion_${p.codigo.replace(/[^a-zA-Z0-9_-]/g, '_')}`; %>
+              <tr>
+                <td>
+                  <form id="<%= formId %>" method="POST" action="/presentaciones/<%= p.codigo %>"></form>
+                  <code><%= p.codigo %></code>
+                </td>
+                <td><input form="<%= formId %>" name="nombre" class="form-control form-control-sm" value="<%= p.nombre %>" required></td>
+                <td><input form="<%= formId %>" type="number" name="orden" class="form-control form-control-sm" value="<%= p.orden %>" step="1" style="max-width:90px"></td>
+                <td><span class="badge bg-light text-dark border"><%= totalPorPresentacion[p.codigo] || 0 %> lote(s)</span></td>
+                <td>
+                  <div class="form-check form-switch">
+                    <input form="<%= formId %>" class="form-check-input" type="checkbox" name="activo" <%= p.activo ? 'checked' : '' %>>
+                  </div>
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <button form="<%= formId %>" class="btn btn-outline-primary" type="submit" title="Guardar">
+                      <i class="bi bi-check-lg"></i>
+                    </button>
+                    <form method="POST" action="/presentaciones/<%= p.codigo %>/eliminar" class="d-inline">
+                      <button class="btn btn-outline-danger" type="submit" title="Eliminar" data-confirm="Desactivar la presentacion <%= p.nombre %>?">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

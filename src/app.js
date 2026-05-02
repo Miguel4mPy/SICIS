@@ -15,6 +15,7 @@ const moment = require('moment');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+const SESSION_IDLE_MINUTES = parseInt(process.env.SESSION_IDLE_MINUTES, 10) || 15;
 
 let appUrl;
 try {
@@ -110,7 +111,7 @@ app.use(session({
   cookie: {
     secure: useSecureCookies,
     httpOnly: true,
-    maxAge: 8 * 60 * 60 * 1000, // 8 horas
+    maxAge: SESSION_IDLE_MINUTES * 60 * 1000,
     sameSite: 'strict'
   }
 }));
@@ -139,6 +140,7 @@ app.use((req, res, next) => {
   res.locals.tipoMovimientoLabel = tipoMovimientoLabel;
   res.locals.tipoDepositoLabel = tipoDepositoLabel;
   res.locals.estadoVencimiento = estadoVencimiento;
+  res.locals.sessionIdleMs = SESSION_IDLE_MINUTES * 60 * 1000;
   next();
 });
 
@@ -181,11 +183,22 @@ app.use((err, req, res, next) => {
   res.status(500).render('errors/500', { title: 'Error interno', layout: 'layouts/main', error: process.env.NODE_ENV !== 'production' ? err.message : null });
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`\n🦟 SICIS - Sistema Informático de Control de Insecticida del SENEPA`);
   console.log(`🚀 Servidor corriendo en http://${HOST}:${PORT}`);
   console.log(`📡 Acceso LAN configurado por APP_URL: ${process.env.APP_URL || `http://localhost:${PORT}`}`);
   console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}\n`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\nERROR: El puerto ${PORT} ya esta en uso.`);
+    console.error('Cierra la otra instancia de SICIS o cambia PORT en el archivo .env.\n');
+    process.exit(1);
+  }
+
+  console.error(err);
+  process.exit(1);
 });
 
 module.exports = app;

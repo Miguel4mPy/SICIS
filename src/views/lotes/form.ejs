@@ -48,6 +48,26 @@
 
           <div class="row mb-4">
             <div class="col-md-6">
+              <label for="unidad_medida" class="form-label fw-semibold">Unidad de Medida <span class="text-danger">*</span></label>
+              <select class="form-select" id="unidad_medida" name="unidad_medida" required>
+                <% for (const u of (unidadesMedida || []).filter(x => x.activo || lote.unidad_medida === x.codigo)) { %>
+                <option value="<%= u.codigo %>" <%= (lote.unidad_medida || 'litro') === u.codigo ? 'selected' : '' %>><%= u.nombre %> (<%= u.abreviatura %>)</option>
+                <% } %>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="presentacion_codigo" class="form-label fw-semibold">Presentacion</label>
+              <select class="form-select" id="presentacion_codigo" name="presentacion_codigo">
+                <option value="">Seleccionar...</option>
+                <% for (const p of (presentaciones || []).filter(x => x.activo || lote.presentacion_codigo === x.codigo)) { %>
+                <option value="<%= p.codigo %>" <%= lote.presentacion_codigo === p.codigo ? 'selected' : '' %>><%= p.nombre %></option>
+                <% } %>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-md-6">
               <label for="fecha_fabricacion" class="form-label fw-semibold">Fecha de Fabricacion</label>
               <input type="date" class="form-control" id="fecha_fabricacion" name="fecha_fabricacion"
                 value="<%= lote.fecha_fabricacion ? new Date(lote.fecha_fabricacion).toISOString().split('T')[0] : '' %>">

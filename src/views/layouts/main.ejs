@@ -17,10 +17,12 @@
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-logo">
-      <div class="sl-icon"><i class="bi bi-shield-fill-check"></i></div>
+      <div class="sl-icon sl-logo-mark">
+        <img src="/images/logo-senepa.png" alt="SENEPA" class="sidebar-logo-img">
+      </div>
       <div class="sl-text">
         <span class="sl-name">SICIS</span>
-        <span class="sl-sub">SENEPA</span>
+        <span class="sl-sub">Sistema Informático de Control de Insecticida del SENEPA</span>
       </div>
     </div>
     <button class="sidebar-close d-lg-none" id="sidebarClose"><i class="bi bi-x-lg"></i></button>
@@ -77,7 +79,7 @@
     </details>
 
     <% if (userRol === 'admin' || userRol === 'encargado_principal') { %>
-    <details class="nav-group" <%= (currentPath.startsWith('/usuarios') || currentPath.startsWith('/insecticidas') || currentPath.startsWith('/lotes') || currentPath.startsWith('/tipos-uso') || currentPath.startsWith('/unidades-medida') || currentPath.startsWith('/logs')) ? 'open' : '' %>>
+    <details class="nav-group" <%= (currentPath.startsWith('/usuarios') || currentPath.startsWith('/depositos') || currentPath.startsWith('/insecticidas') || currentPath.startsWith('/lotes') || currentPath.startsWith('/tipos-uso') || currentPath.startsWith('/unidades-medida') || currentPath.startsWith('/presentaciones') || currentPath.startsWith('/logs')) ? 'open' : '' %>>
       <summary class="nav-section-toggle">
         <span><i class="bi bi-gear-fill"></i>Administracion</span>
         <i class="bi bi-chevron-down nav-group-chevron"></i>
@@ -93,6 +95,9 @@
         </a>
         <% } %>
         <div class="nav-subsection-label">Gestion de Insecticidas</div>
+        <a href="/depositos" class="nav-item <%= currentPath.startsWith('/depositos') ? 'active' : '' %>">
+          <i class="bi bi-building-fill-gear"></i><span>Depositos</span>
+        </a>
         <a href="/insecticidas" class="nav-item <%= currentPath.startsWith('/insecticidas') ? 'active' : '' %>">
           <i class="bi bi-droplet-fill"></i><span>Insecticidas</span>
         </a>
@@ -101,6 +106,9 @@
         </a>
         <a href="/unidades-medida" class="nav-item <%= currentPath.startsWith('/unidades-medida') ? 'active' : '' %>">
           <i class="bi bi-rulers"></i><span>Unidades de Medida</span>
+        </a>
+        <a href="/presentaciones" class="nav-item <%= currentPath.startsWith('/presentaciones') ? 'active' : '' %>">
+          <i class="bi bi-box2-heart"></i><span>Presentacion</span>
         </a>
         <% if (userRol === 'admin') { %>
         <a href="/tipos-uso" class="nav-item <%= currentPath.startsWith('/tipos-uso') ? 'active' : '' %>">
@@ -158,6 +166,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<% if (user) { %>
+<script>
+  window.SICIS_IDLE_TIMEOUT_MS = <%= sessionIdleMs || 900000 %>;
+</script>
+<% } %>
 <script src="/js/sicis.js"></script>
 </body>
 </html>
