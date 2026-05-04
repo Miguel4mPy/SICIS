@@ -57,8 +57,10 @@ body {
   flex-direction: column;
   position: fixed;
   top: 0; left: 0;
+  height: 100vh;
   height: 100dvh;
-  min-height: 100vh;
+  max-height: 100dvh;
+  min-height: 0;
   overflow: hidden;
   transition: transform .3s ease, width .3s ease;
   z-index: 1040;
@@ -413,6 +415,10 @@ body {
   border-top: 1px solid rgba(255,255,255,.1);
   padding: .35rem 0 .5rem;
   flex: 0 0 auto;
+  max-height: 34dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--sicis-primary);
 }
 
 .nav-group-footer {
@@ -1144,10 +1150,28 @@ body.auth-body {
 @media (max-width: 991.98px) {
   .sidebar {
     transform: translateX(-100%);
+    width: min(86vw, var(--sicis-sidebar-w));
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
   }
   .sidebar.open {
     transform: translateX(0);
     box-shadow: 4px 0 24px rgba(0,0,0,.3);
+  }
+  .sidebar-header {
+    padding-top: max(.75rem, env(safe-area-inset-top));
+  }
+  .sidebar-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar-footer {
+    flex: 0 0 auto;
+    padding-bottom: max(.65rem, env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
   }
   .main-area {
     margin-left: 0;
