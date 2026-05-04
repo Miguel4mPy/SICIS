@@ -42,7 +42,8 @@ Editar `.env` con los datos reales:
 # Aplicación
 NODE_ENV=production
 PORT=3000
-APP_URL=http://localhost:3000
+HOST=0.0.0.0
+APP_URL=http://192.168.0.106:3000
 
 # Base de datos PostgreSQL
 DB_HOST=localhost
@@ -259,6 +260,15 @@ pm2 start src/app.js --name sicis
 pm2 startup
 pm2 save
 ```
+
+### Configuracion de red
+
+- `PORT` define el puerto interno de Node.
+- `HOST=0.0.0.0` permite acceso por `localhost` y por la IP LAN del servidor.
+- `APP_URL` debe ser la URL publica usada por los usuarios; no cambia el puerto donde escucha Node.
+- Para publicar con acceso directo por LAN, usar por ejemplo `APP_URL=http://192.168.0.106:3000`.
+- Para publicar detras de Nginx/Apache con dominio, usar por ejemplo `APP_URL=https://sicis.senepa.gov.py`.
+- En produccion no usar `npm run dev`; usar `npm start` o PM2.
 
 ## Nginx (proxy inverso)
 

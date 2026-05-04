@@ -5,13 +5,12 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "dev": "nodemon --config nodemon.json src/app.js",
     "migrate": "node migrations/run.js",
     "seed": "node seeds/run.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "connect-flash": "^0.1.1",
     "connect-pg-simple": "^9.0.1",
     "dotenv": "^16.3.1",
     "ejs": "^3.1.9",

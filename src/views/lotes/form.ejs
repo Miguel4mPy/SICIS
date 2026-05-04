@@ -1,4 +1,5 @@
 <% const esEdicion = Boolean(lote && lote.id); %>
+<% const puedeEditarCantidadInicial = !esEdicion || userRol === 'admin'; %>
 
 <div class="page-header">
   <div>
@@ -44,6 +45,7 @@
               <input type="text" class="form-control" id="codigo_lote" name="codigo_lote"
                 value="<%= lote.codigo_lote || '' %>" placeholder="Ej: LOT-2025-001" required maxlength="50">
             </div>
+            <div class="form-text">Debe ser unico solo para el insecticida seleccionado.</div>
           </div>
 
           <div class="row mb-4">
@@ -82,9 +84,11 @@
           <div class="mb-4">
             <label for="cantidad_inicial" class="form-label fw-semibold">Cantidad Inicial <span class="text-danger">*</span></label>
             <input type="number" class="form-control" id="cantidad_inicial" name="cantidad_inicial"
-              value="<%= lote.cantidad_inicial || '' %>" min="0" step="0.001" placeholder="0.000" <%= esEdicion ? 'readonly' : 'required' %>>
-            <% if (esEdicion) { %>
-            <div class="form-text text-warning"><i class="bi bi-lock-fill me-1"></i>No editable. Use movimientos de ajuste para correcciones.</div>
+              value="<%= lote.cantidad_inicial || '' %>" min="0" step="0.001" placeholder="0.000" <%= puedeEditarCantidadInicial ? 'required' : 'readonly' %>>
+            <% if (esEdicion && userRol === 'admin') { %>
+            <div class="form-text text-info"><i class="bi bi-unlock-fill me-1"></i>Editable solo para usuarios Admin.</div>
+            <% } else if (esEdicion) { %>
+            <div class="form-text text-warning"><i class="bi bi-lock-fill me-1"></i>No editable. Solo el usuario Admin puede modificar esta cantidad.</div>
             <% } %>
           </div>
 

@@ -1,0 +1,110 @@
+<% if (success && success.length) { %>
+<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i><%= success[0] %></div>
+<% } %>
+<% if (error && error.length) { %>
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i><%= error[0] %></div>
+<% } %>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card-sicis">
+      <div class="card-sicis-header">
+        <i class="bi bi-plus-circle me-2"></i>Nuevo Tipo de Movimiento
+      </div>
+      <div class="card-sicis-body">
+        <form method="POST" action="/tipos-movimiento">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="codigo">Codigo</label>
+            <input type="text" class="form-control" id="codigo" name="codigo" maxlength="30" required placeholder="ej. interno">
+            <div class="form-text">Use letras minusculas, numeros o guion bajo.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="nombre">Nombre visible</label>
+            <input type="text" class="form-control" id="nombre" name="nombre" maxlength="80" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="orden">Orden</label>
+            <input type="number" class="form-control" id="orden" name="orden" min="0" step="1" value="0">
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="requiere_tipo_uso" name="requiere_tipo_uso">
+            <label class="form-check-label" for="requiere_tipo_uso">Debe coincidir con tipo de uso del insecticida</label>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-check-lg me-1"></i>Crear tipo
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card-sicis">
+      <div class="card-sicis-header">
+        <i class="bi bi-arrow-left-right me-2"></i>Tipos de Movimiento
+      </div>
+      <div class="card-sicis-body">
+        <div class="table-responsive">
+          <table class="table table-sicis mb-0">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Nombre</th>
+                <th>Orden</th>
+                <th>Uso insecticida</th>
+                <th>Activo</th>
+                <th>Movs.</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!tipos.length) { %>
+              <tr><td colspan="7" class="text-center text-muted py-4">No hay tipos de movimiento configurados.</td></tr>
+              <% } %>
+              <% for (const t of tipos) { %>
+              <tr>
+                <td><span class="badge-tipo-mov badge-tipo-mov-<%= t.codigo %>"><%= t.codigo %></span></td>
+                <td>
+                  <form id="tipo_<%= t.codigo %>" method="POST" action="/tipos-movimiento/<%= t.codigo %>">
+                    <input type="text" class="form-control form-control-sm" name="nombre" value="<%= t.nombre %>" required maxlength="80">
+                  </form>
+                </td>
+                <td style="width: 92px">
+                  <input form="tipo_<%= t.codigo %>" type="number" class="form-control form-control-sm" name="orden" value="<%= t.orden %>" min="0" step="1">
+                </td>
+                <td style="width: 160px">
+                  <div class="form-check form-switch">
+                    <input form="tipo_<%= t.codigo %>" class="form-check-input" type="checkbox" name="requiere_tipo_uso" id="uso_<%= t.codigo %>" <%= t.requiere_tipo_uso ? 'checked' : '' %> <%= t.codigo === 'interno' ? 'disabled' : '' %>>
+                    <label class="form-check-label small" for="uso_<%= t.codigo %>">Validar</label>
+                  </div>
+                </td>
+                <td style="width: 110px">
+                  <div class="form-check form-switch">
+                    <input form="tipo_<%= t.codigo %>" class="form-check-input" type="checkbox" name="activo" id="activo_<%= t.codigo %>" <%= t.activo ? 'checked' : '' %> <%= t.codigo === 'interno' ? 'disabled' : '' %>>
+                    <label class="form-check-label small" for="activo_<%= t.codigo %>">Activo</label>
+                  </div>
+                </td>
+                <td><span class="badge bg-light text-dark border"><%= t.total_movimientos || 0 %></span></td>
+                <td class="text-end">
+                  <div class="table-actions">
+                    <button form="tipo_<%= t.codigo %>" type="submit" class="btn-action" title="Guardar">
+                      <i class="bi bi-check-lg"></i>
+                    </button>
+                    <% if (t.codigo !== 'interno') { %>
+                    <form method="POST" action="/tipos-movimiento/<%= t.codigo %>/eliminar" data-confirm="Desactivar el tipo de movimiento <%= t.nombre %>?">
+                      <button type="submit" class="btn-action btn-action-delete" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

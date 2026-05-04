@@ -1,46 +1,107 @@
 @media print {
+  :root {
+    --report-primary: #1a3a5c;
+    --report-secondary: #eaf2fb;
+    --report-border: #9fb3c8;
+    --report-muted: #516173;
+  }
+
+  html,
+  body,
+  body.print-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
   body.print-body {
     background: #fff !important;
-    color: #111;
-    font-size: 11pt;
+    color: #142235;
+    font-family: 'Barlow', Arial, sans-serif !important;
+    font-size: 9pt;
     padding: 0;
+  }
+
+  #zonaImprimible,
+  .card-body,
+  .table-responsive {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  #zonaImprimible {
+    padding-bottom: .62cm !important;
   }
 
   .card,
   .card.shadow-sm {
     border: 0 !important;
     box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .table {
-    font-size: 9pt;
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 7.2pt;
+    line-height: 1.15;
+    border-collapse: collapse !important;
+  }
+
+  .table > :not(caption) > * > * {
+    padding: .16rem .2rem !important;
+  }
+
+  .reporte-tabla th,
+  .reporte-tabla td {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    vertical-align: top !important;
+  }
+
+  .reporte-tabla code,
+  .reporte-tabla .badge {
+    white-space: normal !important;
+    font-size: .92em !important;
+  }
+
+  .reporte-tabla .text-nowrap {
+    white-space: normal !important;
   }
 
   .reporte-membrete {
     display: block !important;
-    border-color: #1a3a5c !important;
+    margin: 0 0 .22rem !important;
+    border: 1px solid var(--report-primary) !important;
+    border-radius: 0 !important;
+    background: #fff !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
   .membrete-header {
     display: grid !important;
-    grid-template-columns: 170px minmax(0, 1fr) 170px !important;
+    grid-template-columns: 92px minmax(0, 1fr) 92px !important;
     align-items: center !important;
     justify-items: center !important;
     background: #fff !important;
-    color: #1a3a5c !important;
-    border-bottom: 2px solid #1a3a5c !important;
-    padding: .45rem .85rem !important;
-    gap: .65rem !important;
+    color: var(--report-primary) !important;
+    border-bottom: 1px solid var(--report-primary) !important;
+    min-height: 42px !important;
+    padding: .16rem .34rem !important;
+    gap: .38rem !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
   .membrete-logo {
     display: block !important;
-    width: 160px !important;
-    height: 88px !important;
+    width: 82px !important;
+    height: 38px !important;
     max-width: 100% !important;
     object-fit: contain !important;
     filter: none !important;
@@ -52,9 +113,78 @@
     text-align: center !important;
   }
 
+  .membrete-info {
+    line-height: 1.05 !important;
+  }
+
+  .membrete-institucion {
+    font-size: 6.4pt !important;
+    font-weight: 600 !important;
+    letter-spacing: .2px !important;
+    color: var(--report-muted) !important;
+  }
+
+  .membrete-dependencia {
+    font-size: 8pt !important;
+    font-weight: 800 !important;
+    color: var(--report-primary) !important;
+  }
+
+  .membrete-sistema {
+    font-size: 6.2pt !important;
+    color: var(--report-muted) !important;
+  }
+
+  .membrete-titulo {
+    padding: .14rem .25rem !important;
+    background: var(--report-primary) !important;
+    color: #fff !important;
+    font-family: 'Barlow Condensed', 'Barlow', Arial, sans-serif !important;
+    font-size: 8.8pt !important;
+    font-weight: 800 !important;
+    letter-spacing: .25px !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+  }
+
+  .membrete-subtitulo {
+    padding: .1rem .25rem !important;
+    background: var(--report-secondary) !important;
+    color: var(--report-primary) !important;
+    font-size: 6.8pt !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    border-top: 1px solid #d8e5f2 !important;
+  }
+
+  .membrete-meta {
+    display: none !important;
+  }
+
+  .reporte-footer {
+    position: fixed;
+    left: .7cm;
+    right: .7cm;
+    bottom: .24cm;
+    display: flex !important;
+    justify-content: center;
+    gap: .45rem;
+    flex-wrap: wrap;
+    padding-top: .08rem;
+    border-top: 1px solid var(--report-border);
+    color: var(--report-muted);
+    font-size: 6.2pt;
+    line-height: 1.15;
+    background: #fff;
+  }
+
+  .reporte-footer span {
+    white-space: nowrap;
+  }
+
   @page {
     size: A4 landscape;
-    margin: 1.2cm 1cm;
+    margin: .8cm .7cm;
   }
 }
 

@@ -65,7 +65,7 @@
             Los usuarios solo podran registrar movimientos y ver reportes de los depositos asignados. Para roles Encargado y Encargado Principal, marque tambien los depositos donde sera responsable.
           </p>
           <div class="mb-3">
-            <input type="text" class="form-control form-control-sm" id="buscarDeposito" placeholder="Filtrar depositos..." oninput="filtrarDepositos(this.value)">
+            <input type="text" class="form-control form-control-sm" id="buscarDeposito" placeholder="Filtrar depositos...">
           </div>
           <div id="listaDepositos" style="max-height: 320px; overflow-y: auto;">
             <% depositos.forEach(d => { %>
@@ -88,10 +88,10 @@
             <% }) %>
           </div>
           <div class="mt-3 d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleTodos(true)">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle-todos="true">
               <i class="bi bi-check-all me-1"></i>Seleccionar todos
             </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleTodos(false)">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle-todos="false">
               <i class="bi bi-x-circle me-1"></i>Deseleccionar todos
             </button>
           </div>
@@ -111,13 +111,12 @@
               <% const roles = [
                 { id: 'admin', label: 'Admin', descripcion: 'Administracion total del sistema', icono: 'shield-fill' },
                 { id: 'gerente', label: 'Gerente', descripcion: 'Reportes y consultas globales', icono: 'bar-chart-fill' },
-                { id: 'operador', label: 'Operador', descripcion: 'Registro de movimientos asignados', icono: 'person-fill' },
                 { id: 'encargado', label: 'Encargado', descripcion: 'Responsable operativo de uno o mas depositos', icono: 'person-badge-fill' },
                 { id: 'encargado_principal', label: 'Encargado Principal', descripcion: 'Responsable de nivel 1 con gestion de insecticidas y lotes', icono: 'person-fill-gear' }
               ]; %>
               <% roles.forEach(r => { %>
               <div class="form-check card border p-3">
-                <input class="form-check-input rol-radio" type="radio" name="rol" value="<%= r.id %>" id="rol_<%= r.id %>" <%= (usuario.rol === r.id || (!esEdicion && r.id === 'operador')) ? 'checked' : '' %> required onchange="actualizarOpcionesResponsable()">
+                <input class="form-check-input rol-radio" type="radio" name="rol" value="<%= r.id %>" id="rol_<%= r.id %>" <%= (usuario.rol === r.id || (!esEdicion && r.id === 'encargado')) ? 'checked' : '' %> required>
                 <label class="form-check-label" for="rol_<%= r.id %>">
                   <span class="fw-semibold d-block"><%= r.label %></span>
                   <small class="text-muted">
@@ -228,6 +227,20 @@ document.querySelectorAll('.dep-check').forEach(cb => {
       if (resp) resp.checked = false;
     }
   });
+});
+
+document.getElementById('buscarDeposito')?.addEventListener('input', event => {
+  filtrarDepositos(event.target.value);
+});
+
+document.querySelectorAll('[data-toggle-todos]').forEach(button => {
+  button.addEventListener('click', () => {
+    toggleTodos(button.dataset.toggleTodos === 'true');
+  });
+});
+
+document.querySelectorAll('.rol-radio').forEach(radio => {
+  radio.addEventListener('change', actualizarOpcionesResponsable);
 });
 
 actualizarOpcionesResponsable();

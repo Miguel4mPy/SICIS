@@ -20,6 +20,22 @@ function setSidebarActive(path = window.location.pathname) {
   });
 }
 
+function injectCsrfTokens(root = document) {
+  const token = window.SICIS_CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.content;
+  if (!token) return;
+
+  root.querySelectorAll('form[method="POST"], form[method="post"]').forEach(form => {
+    let input = form.querySelector('input[name="_csrf"]');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = '_csrf';
+      form.appendChild(input);
+    }
+    input.value = token;
+  });
+}
+
 function initOtpInputs(root = document) {
   const otpInputs = root.querySelectorAll('.otp-input');
   if (!otpInputs.length || otpInputs[0].dataset.sicisOtpBound) return;
@@ -110,7 +126,233 @@ function initMovimientoStock(root = document) {
   insSelect.addEventListener('change', loadStock);
 }
 
+function initMovimientoForm(root = document) {
+  const form = root.querySelector('#movForm');
+  if (!form || form.dataset.sicisMovimientoFormBound) return;
+  form.dataset.sicisMovimientoFormBound = 'true';
+
+  const tipoSelect = form.querySelector('#tipoMovimientoSelect');
+  const categoriaSelect = form.querySelector('#categoriaSelect');
+  const insectSelect = form.querySelector('#insectSelect');
+  const loteSelect = form.querySelector('#loteSelect');
+  const origenSelect = form.querySelector('#origenSelect');
+  const destinoSelect = form.querySelector('#destinoSelect');
+  let tipoHidden = form.querySelector('input[name="tipo_movimiento"][data-sicis-tipo-hidden]');
+
+  if (!tipoHidden) {
+    tipoHidden = document.createElement('input');
+    tipoHidden.type = 'hidden';
+    tipoHidden.name = 'tipo_movimiento';
+    tipoHidden.dataset.sicisTipoHidden = 'true';
+    tipoHidden.disabled = true;
+    form.appendChild(tipoHidden);
+  }
+
+  function syncTipoMovimientoLock() {
+    if (!categoriaSelect || !tipoSelect) return;
+    const bloqueaInterno = ['entrada', 'transferencia', 'ajuste'].includes(categoriaSelect.value);
+
+    if (bloqueaInterno) {
+      tipoSelect.value = 'interno';
+      tipoSelect.disabled = true;
+      updateComboSelect(tipoSelect);
+      setComboDisabled(tipoSelect, true, 'Tipo fijado por categoria');
+      tipoHidden.value = 'interno';
+      tipoHidden.disabled = false;
+    } else {
+      tipoSelect.disabled = false;
+      setComboDisabled(tipoSelect, false);
+      tipoHidden.disabled = true;
+      tipoHidden.value = '';
+    }
+
+    if (typeof window.filtrarInsecticidasPorTipo === 'function') window.filtrarInsecticidasPorTipo();
+  }
+
+  tipoSelect?.addEventListener('change', () => {
+    if (typeof window.filtrarInsecticidasPorTipo === 'function') window.filtrarInsecticidasPorTipo();
+  });
+  categoriaSelect?.addEventListener('change', () => {
+    if (typeof window.onCategoriaChange === 'function') window.onCategoriaChange();
+    updateComboSelect(destinoSelect);
+    syncTipoMovimientoLock();
+  });
+  insectSelect?.addEventListener('change', () => {
+    if (typeof window.filtrarLotes === 'function') window.filtrarLotes();
+  });
+  loteSelect?.addEventListener('change', () => {
+    if (typeof window.onLoteChange === 'function') window.onLoteChange();
+  });
+  origenSelect?.addEventListener('change', () => {
+    if (typeof window.cargarStockDisponible === 'function') window.cargarStockDisponible();
+  });
+
+  initComboSelects(form);
+  if (typeof window.onCategoriaChange === 'function') window.onCategoriaChange();
+  if (typeof window.filtrarInsecticidasPorTipo === 'function') window.filtrarInsecticidasPorTipo();
+  if (typeof window.filtrarLotes === 'function') window.filtrarLotes();
+  syncTipoMovimientoLock();
+  updateComboSelect(destinoSelect);
+}
+
+function initComboSelects(root = document) {
+  if (!document.body.dataset.sicisComboCloseBound) {
+    document.body.dataset.sicisComboCloseBound = 'true';
+    document.addEventListener('click', (event) => {
+      document.querySelectorAll('.combo-select.open').forEach(combo => {
+        if (!combo.contains(event.target)) {
+          const select = combo.querySelector('select');
+          if (select) closeCombo(select);
+        }
+      });
+    });
+  }
+
+  root.querySelectorAll('select.form-select:not([data-sicis-combo-bound])').forEach(select => {
+    select.dataset.sicisComboBound = 'true';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'combo-select';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control combo-select-input';
+    input.placeholder = select.options[0]?.textContent || 'Seleccionar...';
+    input.autocomplete = 'off';
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-expanded', 'false');
+
+    const menu = document.createElement('div');
+    menu.className = 'combo-select-menu';
+
+    select.before(wrapper);
+    wrapper.append(input, select, menu);
+    select.classList.add('combo-native-select');
+
+    select._sicisCombo = { wrapper, input, menu };
+
+    const observer = new MutationObserver(() => updateComboSelect(select));
+    observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
+
+    input.addEventListener('focus', () => openCombo(select));
+    input.addEventListener('click', () => openCombo(select));
+    input.addEventListener('input', () => renderComboOptions(select, input.value));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeCombo(select);
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        openCombo(select);
+        menu.querySelector('.combo-select-option:not(.disabled)')?.focus();
+      }
+    });
+
+    select.addEventListener('change', () => updateComboSelect(select));
+    updateComboSelect(select);
+  });
+}
+
+function getVisibleSelectOptions(select, query = '') {
+  const normalizedQuery = query.trim().toLowerCase();
+  return Array.from(select.options).filter(option => {
+    if (option.hidden) return false;
+    if (!normalizedQuery) return true;
+    return option.textContent.toLowerCase().includes(normalizedQuery);
+  });
+}
+
+function renderComboOptions(select, query = '') {
+  const combo = select._sicisCombo;
+  if (!combo) return;
+
+  const options = getVisibleSelectOptions(select, query);
+  combo.menu.innerHTML = '';
+
+  if (!options.length) {
+    const empty = document.createElement('button');
+    empty.type = 'button';
+    empty.className = 'combo-select-option disabled';
+    empty.disabled = true;
+    empty.textContent = 'Sin resultados';
+    combo.menu.appendChild(empty);
+    return;
+  }
+
+  options.forEach(option => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = `combo-select-option${option.value === select.value ? ' selected' : ''}`;
+    item.textContent = option.textContent;
+    item.disabled = option.disabled;
+    item.addEventListener('click', () => {
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      closeCombo(select);
+    });
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        item.nextElementSibling?.focus();
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        item.previousElementSibling?.focus() || combo.input.focus();
+      }
+      if (event.key === 'Escape') {
+        closeCombo(select);
+        combo.input.focus();
+      }
+    });
+    combo.menu.appendChild(item);
+  });
+}
+
+function updateComboSelect(select) {
+  const combo = select?._sicisCombo;
+  if (!combo) return;
+
+  const selected = select.selectedOptions[0];
+  combo.input.value = selected && selected.value ? selected.textContent : '';
+  combo.input.disabled = select.disabled;
+  combo.input.placeholder = select.dataset.sicisComboPlaceholder || select.options[0]?.textContent || 'Seleccionar...';
+  renderComboOptions(select);
+}
+
+window.sicisUpdateComboSelect = updateComboSelect;
+
+function setComboDisabled(select, disabled, placeholder = 'Escriba para filtrar...') {
+  const combo = select?._sicisCombo;
+  if (!combo) return;
+  select.dataset.sicisComboPlaceholder = placeholder;
+  combo.input.disabled = disabled;
+  combo.input.placeholder = placeholder;
+  updateComboSelect(select);
+}
+
+function openCombo(select) {
+  const combo = select._sicisCombo;
+  if (!combo || combo.input.disabled) return;
+  document.querySelectorAll('.combo-select.open').forEach(openComboEl => {
+    if (openComboEl !== combo.wrapper) {
+      const openSelect = openComboEl.querySelector('select');
+      if (openSelect) closeCombo(openSelect);
+    }
+  });
+  renderComboOptions(select, combo.input.value);
+  combo.wrapper.classList.add('open');
+  combo.input.setAttribute('aria-expanded', 'true');
+}
+
+function closeCombo(select) {
+  const combo = select._sicisCombo;
+  if (!combo) return;
+  combo.wrapper.classList.remove('open');
+  combo.input.setAttribute('aria-expanded', 'false');
+  updateComboSelect(select);
+}
+
 function initSicisContent(root = document) {
+  injectCsrfTokens(root);
+
   root.querySelectorAll('.alert-dismissible.fade.show:not([data-sicis-alert-bound])').forEach(alert => {
     alert.dataset.sicisAlertBound = 'true';
     if (alert.classList.contains('alert-danger') || alert.classList.contains('alert-warning')) return;
@@ -153,8 +395,17 @@ function initSicisContent(root = document) {
     });
   });
 
+  root.querySelectorAll('[data-sicis-print]:not([data-sicis-print-bound])').forEach(btn => {
+    btn.dataset.sicisPrintBound = 'true';
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      window.print();
+    });
+  });
+
   initOtpInputs(root);
   initMovimientoStock(root);
+  initMovimientoForm(root);
   setSidebarActive();
 }
 
@@ -280,9 +531,9 @@ function initPartialNavigation() {
 
       if (push) history.pushState({}, doc.title || '', url.href);
 
+      await executeContentScripts(main);
       setSidebarActive(url.pathname);
       initSicisContent(main);
-      await executeContentScripts(main);
       window.scrollTo({ top: 0, behavior: 'instant' });
     } catch (err) {
       console.error('Error cargando vista parcial:', err);

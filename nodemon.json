@@ -1,0 +1,17 @@
+{
+  "watch": [
+    "src",
+    "config",
+    "package.json",
+    ".env"
+  ],
+  "ext": "js,json,ejs,env",
+  "ignore": [
+    "node_modules/**",
+    "reportes/**",
+    "public/images/**",
+    "tmp-*.log",
+    "*.log"
+  ],
+  "delay": "500"
+}

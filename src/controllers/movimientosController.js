@@ -26,20 +26,55 @@ async function getDepositosPermitidos(userId, rol) {
 
 async function usuarioEsResponsableDeposito(client, userId, depositoId) {
   if (!depositoId) return false;
-  const r = await client.query(
-    'SELECT 1 FROM usuario_depositos WHERE usuario_id = $1 AND deposito_id = $2 AND es_responsable = true LIMIT 1',
+  const r = await client.query(`
+    SELECT 1
+    FROM usuario_depositos ud
+    JOIN usuarios u ON u.id = ud.usuario_id
+    JOIN depositos d ON d.id = ud.deposito_id
+    WHERE ud.usuario_id = $1
+      AND ud.deposito_id = $2
+      AND (
+        ud.es_responsable = true
+        OR (
+          u.rol IN ('encargado', 'encargado_principal')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM usuario_depositos ud_resp
+            WHERE ud_resp.deposito_id = ud.deposito_id
+              AND ud_resp.es_responsable = true
+          )
+        )
+        OR (u.rol = 'encargado_principal' AND d.nivel = 1)
+      )
+    LIMIT 1
+  `,
     [userId, depositoId]
   );
   return Boolean(r.rows[0]);
 }
 
-async function puedeConfirmarMovimiento(client, userId, rol, movimientoId) {
-  if (rol === 'admin' || rol === 'gerente') return true;
+async function puedeConfirmarMovimiento(client, userId, movimientoId) {
   const r = await client.query(`
     SELECT 1
     FROM movimientos m
     JOIN usuario_depositos ud ON ud.deposito_id = m.deposito_destino_id
-    WHERE m.id = $1 AND ud.usuario_id = $2 AND ud.es_responsable = true
+    JOIN usuarios u ON u.id = ud.usuario_id
+    JOIN depositos d ON d.id = m.deposito_destino_id
+    WHERE m.id = $1
+      AND ud.usuario_id = $2
+      AND (
+        ud.es_responsable = true
+        OR (
+          u.rol IN ('encargado', 'encargado_principal')
+          AND NOT EXISTS (
+            SELECT 1
+            FROM usuario_depositos ud_resp
+            WHERE ud_resp.deposito_id = ud.deposito_id
+              AND ud_resp.es_responsable = true
+          )
+        )
+        OR (u.rol = 'encargado_principal' AND d.nivel = 1)
+      )
     LIMIT 1
   `, [movimientoId, userId]);
   return Boolean(r.rows[0]);
@@ -47,6 +82,69 @@ async function puedeConfirmarMovimiento(client, userId, rol, movimientoId) {
 
 function getAnioEpidemiologico(info) {
   return info.anio || info.año || info['a??o'] || new Date().getFullYear();
+}
+
+async function getDepositoIdsPermitidos(userId, rol) {
+  const depositos = await getDepositosPermitidos(userId, rol);
+  return new Set(depositos.map(d => Number(d.id)));
+}
+
+function assertDepositoPermitido(depIdsPermitidos, depositoId, mensaje) {
+  if (!depositoId) return;
+  if (!depIdsPermitidos.has(Number(depositoId))) {
+    throw new Error(mensaje || 'No tiene permisos sobre el deposito seleccionado.');
+  }
+}
+
+const CATEGORIAS_MOVIMIENTO = [
+  { value: 'entrada', label: 'Entrada (ingreso al deposito)' },
+  { value: 'salida', label: 'Salida (uso / aplicacion)' },
+  { value: 'transferencia', label: 'Transferencia (entre depositos)' },
+  { value: 'ajuste', label: 'Ajuste de Inventario' }
+];
+
+const TIPOS_MOVIMIENTO_BASE = [
+  { value: 'interno', label: 'Interno' },
+  { value: 'espacial', label: 'Espacial' },
+  { value: 'focal', label: 'Focal' },
+  { value: 'residual', label: 'Residual' },
+  { value: 'larvicida', label: 'Larvicida' }
+];
+
+async function getTiposMovimiento(includeInactive = false) {
+  try {
+    const where = includeInactive ? '' : 'WHERE activo = true';
+    const r = await pool.query(`
+      SELECT codigo as value, nombre as label, activo, orden, requiere_tipo_uso
+      FROM tipos_movimiento
+      ${where}
+      ORDER BY orden, nombre
+    `);
+    return r.rows;
+  } catch (err) {
+    if (err.code !== '42P01') throw err;
+    return includeInactive ? TIPOS_MOVIMIENTO_BASE : TIPOS_MOVIMIENTO_BASE;
+  }
+}
+
+function getCategoriasPermitidas(rol) {
+  if (rol === 'encargado_principal') {
+    return CATEGORIAS_MOVIMIENTO.filter(c => ['entrada', 'transferencia', 'ajuste'].includes(c.value));
+  }
+
+  if (rol === 'encargado') {
+    return CATEGORIAS_MOVIMIENTO.filter(c => ['salida', 'transferencia', 'ajuste'].includes(c.value));
+  }
+
+  return CATEGORIAS_MOVIMIENTO;
+}
+
+function getTiposMovimientoPermitidos(rol, tiposMovimiento) {
+  if (rol === 'encargado_principal') {
+    return tiposMovimiento.filter(t => t.value === 'interno');
+  }
+
+  return tiposMovimiento;
 }
 
 exports.index = async (req, res) => {
@@ -123,6 +221,7 @@ exports.new = async (req, res) => {
   try {
     const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
     const insecticidas = await pool.query('SELECT * FROM insecticidas WHERE activo = true ORDER BY nombre');
+    const tiposMovimiento = await getTiposMovimiento();
     const lotes = await pool.query(`
       SELECT l.*, i.nombre as insecticida_nombre, i.tipo_uso
       FROM lotes l
@@ -137,6 +236,9 @@ exports.new = async (req, res) => {
       depositos: depositosPermitidos,
       insecticidas: insecticidas.rows,
       lotes: lotes.rows,
+      categorias: getCategoriasPermitidas(req.session.userRol),
+      tiposMovimiento: getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento),
+      rolUsuario: req.session.userRol,
       tipoMovimientoLabel,
       errors: req.flash('error')
     });
@@ -167,6 +269,29 @@ exports.create = async (req, res) => {
     const cant = Number(cantidad);
     if (!tipo_movimiento || !categoria || !lote_id || !fecha_movimiento) throw new Error('Complete los campos obligatorios.');
     if (Number.isNaN(cant) || cant <= 0) throw new Error('La cantidad debe ser mayor a cero.');
+    if (!getCategoriasPermitidas(req.session.userRol).some(c => c.value === categoria)) {
+      throw new Error('Su rol no tiene permisos para registrar esta categoria de movimiento.');
+    }
+
+    const tiposMovimiento = await getTiposMovimiento();
+    const tipoMovimiento = getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento).find(t => t.value === tipo_movimiento);
+    if (!tipoMovimiento) {
+      throw new Error('Su rol no tiene permisos para registrar este tipo de movimiento.');
+    }
+    if (['entrada', 'transferencia', 'ajuste'].includes(categoria) && tipo_movimiento !== 'interno') {
+      throw new Error('Las entradas, transferencias y ajustes de inventario deben registrarse como movimiento interno.');
+    }
+
+    const depIdsPermitidos = await getDepositoIdsPermitidos(req.session.userId, req.session.userRol);
+    assertDepositoPermitido(depIdsPermitidos, deposito_origen_id, 'No tiene permisos sobre el deposito de origen.');
+    assertDepositoPermitido(depIdsPermitidos, deposito_destino_id, 'No tiene permisos sobre el deposito de destino.');
+
+    if (req.session.userRol === 'encargado_principal' && categoria === 'entrada') {
+      const destino = await client.query('SELECT nivel FROM depositos WHERE id = $1 AND activo = true', [deposito_destino_id || null]);
+      if (!destino.rows[0] || Number(destino.rows[0].nivel) !== 1) {
+        throw new Error('El encargado principal solo puede registrar entradas a depositos de nivel 1.');
+      }
+    }
 
     const loteRes = await client.query(`
       SELECT l.*, i.id as ins_id, i.tipo_uso, COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]) as tipo_usos
@@ -176,7 +301,7 @@ exports.create = async (req, res) => {
     `, [lote_id]);
     if (!loteRes.rows[0]) throw new Error('Lote no encontrado.');
     const lote = loteRes.rows[0];
-    if (tipo_movimiento !== 'interno' && !lote.tipo_usos.includes(tipo_movimiento)) {
+    if (tipoMovimiento.requiere_tipo_uso && !lote.tipo_usos.includes(tipo_movimiento)) {
       throw new Error('El tipo de movimiento no esta habilitado para el insecticida seleccionado.');
     }
 
@@ -188,8 +313,8 @@ exports.create = async (req, res) => {
     if ((categoria === 'entrada' || categoria === 'transferencia') && !deposito_destino_id) {
       throw new Error('Debe especificar el deposito de destino.');
     }
-    if (categoria === 'ajuste' && !deposito_destino_id && !deposito_origen_id) {
-      throw new Error('Debe especificar un deposito.');
+    if (categoria === 'ajuste' && !deposito_destino_id) {
+      throw new Error('Debe especificar el deposito donde se realizara el ajuste.');
     }
 
     if (categoria === 'salida' || categoria === 'transferencia') {
@@ -286,9 +411,22 @@ exports.show = async (req, res) => {
       return res.redirect('/movimientos');
     }
 
+    const depIdsPermitidos = await getDepositoIdsPermitidos(req.session.userId, req.session.userRol);
+    const origenPermitido = mov.rows[0].deposito_origen_id && depIdsPermitidos.has(Number(mov.rows[0].deposito_origen_id));
+    const destinoPermitido = mov.rows[0].deposito_destino_id && depIdsPermitidos.has(Number(mov.rows[0].deposito_destino_id));
+    if (!origenPermitido && !destinoPermitido) {
+      req.flash('error', 'No tiene permisos para ver este movimiento.');
+      return res.redirect('/movimientos');
+    }
+
+    const puedeConfirmar = mov.rows[0].estado === 'pendiente'
+      ? await puedeConfirmarMovimiento(pool, req.session.userId, id)
+      : false;
+
     res.render('movimientos/show', {
       title: `Movimiento ${mov.rows[0].numero_mov}`,
       movimiento: mov.rows[0],
+      puedeConfirmar,
       tipoMovimientoLabel
     });
   } catch (err) {
@@ -348,37 +486,54 @@ exports.anular = async (req, res) => {
 
 exports.confirmaciones = async (req, res) => {
   try {
-    const params = [];
-    let whereResponsable = '';
-
-    if (!['admin', 'gerente'].includes(req.session.userRol)) {
-      params.push(req.session.userId);
-      whereResponsable = `
-        AND EXISTS (
-          SELECT 1
-          FROM usuario_depositos ud
-          WHERE ud.usuario_id = $1
-            AND ud.deposito_id = m.deposito_destino_id
-            AND ud.es_responsable = true
-        )
-      `;
-    }
+    const params = [req.session.userId];
 
     const pendientes = await pool.query(`
       SELECT m.*, i.nombre as insecticida_nombre, l.unidad_medida,
         l.codigo_lote, l.fecha_vencimiento,
         dor.nombre as origen_nombre, dor.codigo as origen_codigo,
         dde.nombre as destino_nombre, dde.codigo as destino_codigo,
-        u.nombre || ' ' || u.apellido as usuario_nombre
+        u.nombre || ' ' || u.apellido as usuario_nombre,
+        resp.nombre || ' ' || resp.apellido as encargado_destino_nombre
       FROM movimientos m
       JOIN insecticidas i ON m.insecticida_id = i.id
       JOIN lotes l ON m.lote_id = l.id
       LEFT JOIN depositos dor ON m.deposito_origen_id = dor.id
       LEFT JOIN depositos dde ON m.deposito_destino_id = dde.id
       JOIN usuarios u ON m.usuario_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT ur.nombre, ur.apellido
+        FROM usuario_depositos ud_resp
+        JOIN usuarios ur ON ur.id = ud_resp.usuario_id
+        WHERE ud_resp.deposito_id = m.deposito_destino_id
+          AND ur.activo = true
+          AND ur.rol IN ('encargado', 'encargado_principal')
+        ORDER BY ud_resp.es_responsable DESC, ur.apellido, ur.nombre
+        LIMIT 1
+      ) resp ON true
       WHERE m.estado = 'pendiente'
         AND m.deposito_destino_id IS NOT NULL
-        ${whereResponsable}
+        AND EXISTS (
+          SELECT 1
+          FROM usuario_depositos ud
+          JOIN usuarios ur ON ur.id = ud.usuario_id
+          JOIN depositos dd ON dd.id = m.deposito_destino_id
+          WHERE ud.usuario_id = $1
+            AND ud.deposito_id = m.deposito_destino_id
+            AND (
+              ud.es_responsable = true
+              OR (
+                ur.rol IN ('encargado', 'encargado_principal')
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM usuario_depositos ud_resp
+                  WHERE ud_resp.deposito_id = ud.deposito_id
+                    AND ud_resp.es_responsable = true
+                )
+              )
+              OR (ur.rol = 'encargado_principal' AND dd.nivel = 1)
+            )
+        )
       ORDER BY m.created_at ASC
     `, params);
 
@@ -401,7 +556,7 @@ exports.confirmar = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const puede = await puedeConfirmarMovimiento(client, req.session.userId, req.session.userRol, id);
+    const puede = await puedeConfirmarMovimiento(client, req.session.userId, id);
     if (!puede) throw new Error('No tiene permisos para confirmar este movimiento.');
 
     const movRes = await client.query('SELECT * FROM movimientos WHERE id = $1 AND estado = $2 FOR UPDATE', [id, 'pendiente']);
@@ -440,6 +595,11 @@ exports.confirmar = async (req, res) => {
 exports.getStockPorDeposito = async (req, res) => {
   const { deposito_id } = req.params;
   try {
+    const depIdsPermitidos = await getDepositoIdsPermitidos(req.session.userId, req.session.userRol);
+    if (!depIdsPermitidos.has(Number(deposito_id))) {
+      return res.status(403).json({ error: 'No tiene permisos sobre este deposito.' });
+    }
+
     const stock = await pool.query(`
       SELECT s.cantidad, l.id as lote_id, l.codigo_lote, l.fecha_vencimiento, l.unidad_medida
       FROM stock s

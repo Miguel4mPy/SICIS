@@ -7,6 +7,7 @@ const movimientosCtrl = require('../controllers/movimientosController');
 const reportesCtrl = require('../controllers/reportesController');
 const usuariosCtrl = require('../controllers/usuariosController');
 const insecticidasCtrl = require('../controllers/insecticidasController');
+const tiposMovimientoCtrl = require('../controllers/tiposMovimientoController');
 const logsCtrl = require('../controllers/logsController');
 
 // Dashboard
@@ -59,11 +60,11 @@ router.post('/perfil', requireAuth, usuariosCtrl.updatePerfil);
 router.post('/perfil/password', requireAuth, usuariosCtrl.updatePerfilPassword);
 
 // Depósitos
-router.get('/depositos', requireAuth, depositosCtrl.index);
-router.get('/depositos/arbol', requireAuth, depositosCtrl.getArbol);
+router.get('/depositos', requireAuth, requireRole('admin'), depositosCtrl.index);
+router.get('/depositos/arbol', requireAuth, requireRole('admin'), depositosCtrl.getArbol);
 router.get('/depositos/nuevo', requireAuth, requireRole('admin'), depositosCtrl.new);
 router.post('/depositos', requireAuth, requireRole('admin'), depositosCtrl.create);
-router.get('/depositos/:id', requireAuth, depositosCtrl.show);
+router.get('/depositos/:id', requireAuth, requireRole('admin'), depositosCtrl.show);
 router.get('/depositos/:id/editar', requireAuth, requireRole('admin'), depositosCtrl.edit);
 router.post('/depositos/:id', requireAuth, requireRole('admin'), depositosCtrl.update);
 router.post('/depositos/:id/eliminar', requireAuth, requireRole('admin'), depositosCtrl.delete);
@@ -71,6 +72,10 @@ router.post('/depositos/:id/eliminar', requireAuth, requireRole('admin'), deposi
 // Insecticidas
 router.get('/tipos-uso', requireAuth, requireRole('admin'), insecticidasCtrl.tiposUsoIndex);
 router.post('/tipos-uso', requireAuth, requireRole('admin'), insecticidasCtrl.tiposUsoUpdate);
+router.get('/tipos-movimiento', requireAuth, requireRole('admin'), tiposMovimientoCtrl.index);
+router.post('/tipos-movimiento', requireAuth, requireRole('admin'), tiposMovimientoCtrl.create);
+router.post('/tipos-movimiento/:codigo', requireAuth, requireRole('admin'), tiposMovimientoCtrl.update);
+router.post('/tipos-movimiento/:codigo/eliminar', requireAuth, requireRole('admin'), tiposMovimientoCtrl.delete);
 router.get('/unidades-medida', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.unidadesIndex);
 router.post('/unidades-medida', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.unidadesCreate);
 router.post('/unidades-medida/:codigo', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.unidadesUpdate);
@@ -89,8 +94,8 @@ router.post('/insecticidas/:id/eliminar', requireAuth, requireRole('admin', 'enc
 
 // Lotes
 router.get('/lotes', requireAuth, insecticidasCtrl.lotesIndex);
-router.get('/lotes/nuevo', requireAuth, requireRole('admin', 'operador', 'encargado_principal'), insecticidasCtrl.loteNew);
-router.post('/lotes', requireAuth, requireRole('admin', 'operador', 'encargado_principal'), insecticidasCtrl.loteCreate);
+router.get('/lotes/nuevo', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.loteNew);
+router.post('/lotes', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.loteCreate);
 router.get('/lotes/:id/editar', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.loteEdit);
 router.post('/lotes/:id', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.loteUpdate);
 router.post('/lotes/:id/eliminar', requireAuth, requireRole('admin', 'encargado_principal'), insecticidasCtrl.loteDelete);
@@ -109,6 +114,7 @@ router.get('/api/stock/:deposito_id', requireAuth, movimientosCtrl.getStockPorDe
 router.get('/reportes', requireAuth, reportesCtrl.index);
 router.get('/reportes/movimientos', requireAuth, reportesCtrl.movimientos);
 router.get('/reportes/stock', requireAuth, reportesCtrl.stock);
+router.get('/reportes/stock-general', requireAuth, reportesCtrl.stockGeneral);
 router.get('/reportes/grafico', requireAuth, requireRole('admin', 'gerente'), reportesCtrl.grafico);
 
 // Usuarios (solo admin)

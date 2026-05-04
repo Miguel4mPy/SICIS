@@ -3,9 +3,10 @@ const { v4: uuidv4 } = require('uuid');
 const pool = require('../../config/database');
 const { auditLog } = require('../middleware/auth');
 const { sendPasswordSetupEmail, sendPasswordResetEmail } = require('../utils/email');
+const { createPasswordResetToken, hashPasswordResetToken } = require('../utils/passwordTokens');
 
 const TOKEN_HOURS = parseInt(process.env.PASSWORD_TOKEN_HOURS) || 24;
-const ROLES_VALIDOS = ['admin', 'gerente', 'operador', 'encargado', 'encargado_principal'];
+const ROLES_VALIDOS = ['admin', 'gerente', 'encargado', 'encargado_principal'];
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -16,10 +17,10 @@ function tokenExpiry() {
 }
 
 async function setPasswordToken(userId) {
-  const token = uuidv4();
+  const token = createPasswordResetToken();
   await pool.query(
     'UPDATE usuarios SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
-    [token, tokenExpiry(), userId]
+    [hashPasswordResetToken(token), tokenExpiry(), userId]
   );
   return token;
 }

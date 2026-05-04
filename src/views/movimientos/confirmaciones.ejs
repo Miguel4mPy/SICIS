@@ -38,9 +38,12 @@
             </div>
 
             <div class="info-card-meta">
+              <span><i class="bi bi-diagram-3"></i>Categoria <%= String(m.categoria || '').toUpperCase() %></span>
+              <span><i class="bi bi-arrow-left-right"></i>Tipo <%= tipoMovimientoLabel(m.tipo_movimiento) %></span>
               <span><i class="bi bi-tag"></i>Lote <%= m.codigo_lote %></span>
               <span><i class="bi bi-calendar3"></i><%= formatearFecha(m.fecha_movimiento) %></span>
               <span><i class="bi bi-person"></i>Registrado por <%= m.usuario_nombre %></span>
+              <span><i class="bi bi-person-check"></i>Encargado destino <%= m.encargado_destino_nombre || 'Sin encargado asignado' %></span>
             </div>
 
             <form method="POST" action="/movimientos/<%= m.id %>/confirmar" class="mt-auto">

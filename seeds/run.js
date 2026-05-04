@@ -139,20 +139,6 @@ async function seed() {
       ON CONFLICT (email) DO NOTHING
     `, [gerenteHash]);
 
-    // Usuario Operador
-    const operadorHash = await bcrypt.hash('Operador@SICIS2025!', 12);
-    const opRes = await client.query(`
-      INSERT INTO usuarios (nombre, apellido, email, password_hash, rol)
-      VALUES ('María', 'González', 'operador@senepa.gov.py', $1, 'operador')
-      ON CONFLICT (email) DO NOTHING RETURNING id
-    `, [operadorHash]);
-
-    if (opRes.rows[0]?.id && zonaIds[0]) {
-      await client.query(`
-        INSERT INTO usuario_depositos (usuario_id, deposito_id, es_responsable)
-        VALUES ($1, $2, false) ON CONFLICT DO NOTHING
-      `, [opRes.rows[0].id, zonaIds[0]]);
-    }
 
     // Usuario Encargado
     const encargadoHash = await bcrypt.hash('Encargado@SICIS2025!', 12);
@@ -183,7 +169,6 @@ async function seed() {
     console.log('\n📋 Credenciales de acceso:');
     console.log('   Admin:    admin@senepa.gov.py    / Admin@SICIS2025!');
     console.log('   Gerente:  gerente@senepa.gov.py  / Gerente@SICIS2025!');
-    console.log('   Operador: operador@senepa.gov.py / Operador@SICIS2025!');
     console.log('   Encargado: encargado@senepa.gov.py / Encargado@SICIS2025!');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -196,3 +181,4 @@ async function seed() {
 }
 
 seed().catch(() => process.exit(1));
+

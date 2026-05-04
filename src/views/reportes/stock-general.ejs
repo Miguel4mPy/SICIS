@@ -1,0 +1,102 @@
+<div class="page-header d-print-none">
+  <div>
+    <h1 class="page-title"><i class="bi bi-grid-3x3-gap me-2"></i>Reporte de Stock General</h1>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/reportes">Reportes</a></li>
+        <li class="breadcrumb-item active">Stock General</li>
+      </ol>
+    </nav>
+  </div>
+  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
+    <i class="bi bi-printer me-1"></i>Imprimir
+  </button>
+</div>
+
+<div class="alert alert-info d-print-none">
+  <i class="bi bi-info-circle me-2"></i>
+  Matriz de stock por deposito, insecticida y lote. En impresion se ajusta en formato A4 horizontal.
+</div>
+
+<div id="zonaImprimible" class="stock-general-report">
+  <div class="reporte-membrete d-none d-print-block mb-2">
+    <div class="membrete-header">
+      <img src="/images/logo-mspbs.png" alt="MSPBS" class="membrete-logo">
+      <div class="membrete-info">
+        <div class="membrete-institucion">MINISTERIO DE SALUD PUBLICA Y BIENESTAR SOCIAL</div>
+        <div class="membrete-dependencia">SERVICIO NACIONAL DE ERRADICACION DEL PALUDISMO - SENEPA</div>
+        <div class="membrete-sistema">SICIS - Sistema Informatico de Control de Insecticida</div>
+      </div>
+      <img src="/images/logo-senepa.png" alt="SENEPA" class="membrete-logo">
+    </div>
+    <div class="membrete-titulo">REPORTE DE STOCK GENERAL</div>
+  </div>
+
+  <% if (!lotes.length || !filas.length) { %>
+    <div class="dashboard-empty-card">
+      No hay stock disponible para generar la matriz.
+    </div>
+  <% } else { %>
+    <div class="stock-general-summary d-print-none">
+      <span><strong><%= depositos.length %></strong> depositos</span>
+      <span><strong><%= lotes.length %></strong> lotes</span>
+      <span><strong><%= totalGeneral.toFixed(3) %></strong> total general</span>
+    </div>
+
+    <div class="stock-matrix-wrap">
+      <table class="table table-bordered table-sm stock-matrix-table">
+        <thead>
+          <tr>
+            <th class="stock-matrix-deposito-col" rowspan="2">Deposito</th>
+            <% insecticidaGrupos.forEach(g => { %>
+              <th class="stock-matrix-insecticida-group" colspan="<%= g.lotes.length %>">
+                <%= g.nombre %>
+              </th>
+            <% }) %>
+            <th class="stock-matrix-total-col" rowspan="2">Total</th>
+          </tr>
+          <tr>
+            <% lotes.forEach(l => { %>
+              <th class="stock-matrix-lote-col">
+                <div class="stock-matrix-lote-head">
+                  <span class="stock-matrix-lote">Lote <%= l.codigo_lote %></span>
+                  <span class="stock-matrix-vto">Vto. <%= formatearFecha(l.fecha_vencimiento) %></span>
+                </div>
+              </th>
+            <% }) %>
+          </tr>
+        </thead>
+        <tbody>
+          <% filas.forEach(row => { %>
+            <tr>
+              <th class="stock-matrix-deposito">
+                <span class="stock-matrix-dep-name">N<%= row.deposito.nivel %> - <%= row.deposito.nombre %></span>
+              </th>
+              <% row.celdas.forEach(value => { %>
+                <td class="stock-matrix-value <%= value > 0 ? 'has-stock' : '' %>">
+                  <%= value > 0 ? value.toFixed(3) : '-' %>
+                </td>
+              <% }) %>
+              <td class="stock-matrix-row-total"><%= row.total.toFixed(3) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Total por lote</th>
+            <% lotes.forEach(l => { %>
+              <th class="stock-matrix-col-total"><%= l.total_stock.toFixed(3) %></th>
+            <% }) %>
+            <th class="stock-matrix-grand-total"><%= totalGeneral.toFixed(3) %></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  <% } %>
+  <div class="reporte-footer">
+    <span>Generado por: <strong><%= user ? `${user.nombre} ${user.apellido}` : '' %></strong></span>
+    <span>Fecha y hora: <strong><%= new Date().toLocaleString('es-PY') %></strong></span>
+    <span>Depositos: <strong><%= depositos.length %></strong></span>
+    <span>Lotes: <strong><%= lotes.length %></strong></span>
+  </div>
+</div>

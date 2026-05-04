@@ -51,7 +51,6 @@
           <option value="">Todos los roles</option>
           <option value="admin" <%= rol === 'admin' ? 'selected' : '' %>>Admin</option>
           <option value="gerente" <%= rol === 'gerente' ? 'selected' : '' %>>Gerente</option>
-          <option value="operador" <%= rol === 'operador' ? 'selected' : '' %>>Operador</option>
           <option value="encargado" <%= rol === 'encargado' ? 'selected' : '' %>>Encargado</option>
           <option value="encargado_principal" <%= rol === 'encargado_principal' ? 'selected' : '' %>>Encargado Principal</option>
         </select>
@@ -176,7 +175,7 @@
                 <li><hr class="dropdown-divider"></li>
                 <li>
                   <form method="POST" action="/usuarios/<%= u.id %>/eliminar" class="d-inline"
-                    onsubmit="return confirm('Desactivar al usuario <%= u.nombre %> <%= u.apellido %>?')">
+                    data-confirm="Desactivar al usuario <%= u.nombre %> <%= u.apellido %>?">
                     <button type="submit" class="dropdown-item text-danger">
                       <i class="bi bi-trash me-2"></i>Desactivar
                     </button>
@@ -208,12 +207,10 @@
 
 .avatar-admin { background: #dc354520; color: #dc3545; }
 .avatar-gerente { background: #0dcaf020; color: #0a9bb5; }
-.avatar-operador { background: #19875420; color: #198754; }
 .avatar-encargado { background: #6f42c120; color: #5a32a3; }
 .avatar-encargado_principal { background: #1e88e520; color: #155fa0; }
 .badge-rol-admin { background: #dc354520; color: #dc3545; border: 1px solid #dc354540; }
 .badge-rol-gerente { background: #0dcaf020; color: #0a9bb5; border: 1px solid #0dcaf040; }
-.badge-rol-operador { background: #19875420; color: #198754; border: 1px solid #19875440; }
 .badge-rol-encargado { background: #6f42c120; color: #5a32a3; border: 1px solid #6f42c140; }
 .badge-rol-encargado_principal { background: #1e88e520; color: #155fa0; border: 1px solid #1e88e540; }
 </style>

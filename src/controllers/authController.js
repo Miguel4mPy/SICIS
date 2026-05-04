@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
 const pool = require('../../config/database');
 const { sendPasswordResetEmail } = require('../utils/email');
 const { auditLog } = require('../middleware/auth');
+const { createPasswordResetToken, hashPasswordResetToken } = require('../utils/passwordTokens');
 
 const MAX_INTENTOS = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5;
 const LOCKOUT_MIN = parseInt(process.env.LOCKOUT_DURATION_MINUTES) || 30;
@@ -30,10 +30,10 @@ function destroySession(req) {
 }
 
 exports.createPasswordToken = async function createPasswordToken(userId) {
-  const token = uuidv4();
+  const token = createPasswordResetToken();
   await pool.query(
     'UPDATE usuarios SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
-    [token, tokenExpiry(), userId]
+    [hashPasswordResetToken(token), tokenExpiry(), userId]
   );
   return token;
 };
@@ -197,7 +197,7 @@ exports.getResetPassword = async (req, res) => {
   const { token } = req.params;
   const result = await pool.query(
     'SELECT id, nombre, email FROM usuarios WHERE password_reset_token = $1 AND password_reset_expires > NOW() AND activo = true',
-    [token]
+    [hashPasswordResetToken(token)]
   );
   if (!result.rows[0]) {
     req.flash('error', 'Enlace invalido o expirado.');
@@ -229,7 +229,7 @@ exports.postResetPassword = async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT id, email FROM usuarios WHERE password_reset_token = $1 AND password_reset_expires > NOW() AND activo = true',
-      [token]
+      [hashPasswordResetToken(token)]
     );
     if (!result.rows[0]) {
       req.flash('error', 'Enlace invalido o expirado.');

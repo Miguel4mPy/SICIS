@@ -9,9 +9,9 @@
       </ol>
     </nav>
   </div>
-  <a href="/reportes/stock?<%= querystring ? querystring + '&' : '' %>formato=imprimir" target="_blank" class="btn btn-outline-secondary">
+  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
     <i class="bi bi-printer me-1"></i>Imprimir
-  </a>
+  </button>
 </div>
 
 <div class="card shadow-sm mb-4 d-print-none">
@@ -94,16 +94,20 @@
   </div>
   <div class="membrete-titulo">REPORTE DE SALDOS DE STOCK DE INSECTICIDAS</div>
   <div class="membrete-subtitulo">Al <%= new Date().toLocaleDateString('es-PY') %></div>
-  <div class="membrete-meta">
-    Generado por: <%= user ? `${user.nombre} ${user.apellido}` : '' %> |
-    Fecha: <%= new Date().toLocaleString('es-PY') %> |
-    Total registros: <%= stock.length %>
-  </div>
 </div>
 
 <div class="card shadow-sm">
   <div class="table-responsive">
     <table class="table table-sm table-hover align-middle mb-0 reporte-tabla">
+      <colgroup>
+        <col style="width: 23%">
+        <col style="width: 10%">
+        <col style="width: 22%">
+        <col style="width: 13%">
+        <col style="width: 11%">
+        <col style="width: 11%">
+        <col style="width: 10%">
+      </colgroup>
       <thead class="table-light">
         <tr>
           <th>Deposito</th>
@@ -133,5 +137,10 @@
       </tbody>
     </table>
   </div>
+</div>
+<div class="reporte-footer">
+  <span>Generado por: <strong><%= user ? `${user.nombre} ${user.apellido}` : '' %></strong></span>
+  <span>Fecha y hora: <strong><%= new Date().toLocaleString('es-PY') %></strong></span>
+  <span>Total registros: <strong><%= stock.length %></strong></span>
 </div>
 </div>

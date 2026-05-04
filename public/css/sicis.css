@@ -194,7 +194,28 @@ body {
   margin: 0;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.32) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 7px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.26);
+  border-radius: 999px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.4);
 }
 
 .nav-section-label {
@@ -396,6 +417,21 @@ body {
 
 .nav-group-footer {
   margin-top: 0;
+}
+
+.sidebar-version {
+  display: inline-flex;
+  justify-content: center;
+  align-self: center;
+  margin-top: .35rem;
+  padding: .12rem .45rem;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  color: rgba(255,255,255,.62);
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .25px;
+  text-align: center;
 }
 
 .logout-item {
@@ -912,6 +948,10 @@ body {
   background: #fafafa;
 }
 
+.reporte-footer {
+  display: none;
+}
+
 .firma-seccion {
   display: flex;
   justify-content: space-around;
@@ -1142,21 +1182,309 @@ body.auth-body {
   .alert, .form-select, .form-control, .card-header .btn { display: none !important; }
 
   .main-area { margin-left: 0 !important; }
-  .content-wrapper { padding: 0 !important; }
+  .main-content { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }
+  .content-wrapper,
+  .content-area,
+  #zonaImprimible,
+  .table-responsive {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
 
-  body { background: #fff !important; font-size: 11pt; }
+  body { background: #fff !important; font-size: 9pt; overflow: visible !important; }
 
-  .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+  .card {
+    box-shadow: none !important;
+    border: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 
   .reporte-tabla thead { background: #1a3a5c !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .reporte-tabla thead th { color: #fff !important; }
+  .reporte-tabla {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 7.2pt !important;
+    line-height: 1.15 !important;
+  }
+  .reporte-tabla thead th {
+    color: #fff !important;
+    white-space: normal !important;
+    letter-spacing: 0 !important;
+    padding: .16rem .2rem !important;
+  }
+  .reporte-tabla tbody td {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    vertical-align: top !important;
+    padding: .16rem .2rem !important;
+  }
+  .reporte-tabla .text-nowrap,
+  .reporte-tabla code,
+  .reporte-tabla .badge {
+    white-space: normal !important;
+  }
   .reporte-tabla tbody tr:nth-child(even) { background: #f8f9fa !important; }
+
+  .stock-general-report {
+    zoom: .72;
+    page-break-inside: avoid;
+  }
+
+  .stock-general-report .reporte-membrete {
+    margin-bottom: .15rem !important;
+  }
+
+  .stock-general-report .membrete-header {
+    grid-template-columns: 118px minmax(0, 1fr) 118px !important;
+    padding: .22rem .4rem !important;
+  }
+
+  .stock-general-report .membrete-logo {
+    width: 108px !important;
+    height: 52px !important;
+  }
+
+  .stock-general-report .membrete-titulo {
+    padding: .22rem !important;
+    font-size: .78rem !important;
+  }
+
+  .stock-general-report .membrete-meta {
+    padding: .12rem !important;
+    font-size: .55rem !important;
+  }
+
+  .stock-matrix-wrap {
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .stock-matrix-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    font-size: 4.8pt !important;
+    line-height: 1.05 !important;
+    page-break-inside: avoid;
+  }
+
+  .stock-matrix-table th,
+  .stock-matrix-table td {
+    padding: .05rem .06rem !important;
+    border-color: #8ea6bd !important;
+  }
+
+  .stock-matrix-deposito-col,
+  .stock-matrix-deposito {
+    position: static !important;
+    min-width: 0 !important;
+    width: 9.5% !important;
+    max-width: none !important;
+  }
+
+  .stock-matrix-lote-col {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 72px !important;
+    vertical-align: bottom !important;
+  }
+
+  .stock-matrix-insecticida-group {
+    font-size: 5.4pt !important;
+    padding: .05rem .08rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    background: #12304f !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .stock-matrix-lote-head {
+    display: block !important;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 68px;
+    overflow: hidden;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .stock-matrix-ins,
+  .stock-matrix-lote,
+  .stock-matrix-vto,
+  .stock-matrix-dep-name {
+    font-size: inherit !important;
+    white-space: nowrap !important;
+  }
+
+  .stock-matrix-value,
+  .stock-matrix-row-total,
+  .stock-matrix-col-total,
+  .stock-matrix-grand-total {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+  }
 
   a { color: inherit !important; text-decoration: none !important; }
 
   @page {
-    margin: 1.5cm 1cm;
+    margin: .8cm .7cm;
     size: A4 landscape;
+  }
+}
+
+@media print {
+  :root {
+    --report-primary: #1a3a5c;
+    --report-secondary: #eaf2fb;
+    --report-border: #9fb3c8;
+    --report-muted: #516173;
+  }
+
+  body,
+  body.print-body {
+    font-family: 'Barlow', Arial, sans-serif !important;
+    color: #142235 !important;
+  }
+
+  #zonaImprimible {
+    padding-bottom: .62cm !important;
+  }
+
+  .reporte-membrete,
+  .stock-general-report .reporte-membrete {
+    display: block !important;
+    margin: 0 0 .22rem !important;
+    border: 1px solid var(--report-primary) !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .membrete-header,
+  .stock-general-report .membrete-header {
+    display: grid !important;
+    grid-template-columns: 92px minmax(0, 1fr) 92px !important;
+    align-items: center !important;
+    justify-items: center !important;
+    gap: .38rem !important;
+    min-height: 42px !important;
+    padding: .16rem .34rem !important;
+    border-bottom: 1px solid var(--report-primary) !important;
+    background: #fff !important;
+    color: var(--report-primary) !important;
+  }
+
+  .membrete-logo,
+  .stock-general-report .membrete-logo {
+    width: 82px !important;
+    height: 38px !important;
+    object-fit: contain !important;
+    filter: none !important;
+  }
+
+  .membrete-info {
+    text-align: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    line-height: 1.05 !important;
+  }
+
+  .membrete-institucion {
+    font-size: 6.4pt !important;
+    font-weight: 600 !important;
+    letter-spacing: .2px !important;
+    color: var(--report-muted) !important;
+  }
+
+  .membrete-dependencia {
+    font-size: 8pt !important;
+    font-weight: 800 !important;
+    color: var(--report-primary) !important;
+  }
+
+  .membrete-sistema {
+    font-size: 6.2pt !important;
+    color: var(--report-muted) !important;
+  }
+
+  .membrete-titulo,
+  .stock-general-report .membrete-titulo {
+    padding: .14rem .25rem !important;
+    background: var(--report-primary) !important;
+    color: #fff !important;
+    font-family: 'Barlow Condensed', 'Barlow', Arial, sans-serif !important;
+    font-size: 8.8pt !important;
+    font-weight: 800 !important;
+    letter-spacing: .25px !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+  }
+
+  .membrete-subtitulo {
+    padding: .1rem .25rem !important;
+    background: var(--report-secondary) !important;
+    color: var(--report-primary) !important;
+    font-size: 6.8pt !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    border-top: 1px solid #d8e5f2 !important;
+  }
+
+  .membrete-meta {
+    display: none !important;
+  }
+
+  .reporte-footer {
+    position: fixed;
+    left: .7cm;
+    right: .7cm;
+    bottom: .24cm;
+    display: flex !important;
+    justify-content: center;
+    gap: .45rem;
+    flex-wrap: wrap;
+    padding-top: .08rem;
+    border-top: 1px solid var(--report-border);
+    color: var(--report-muted);
+    font-size: 6.2pt;
+    line-height: 1.15;
+    background: #fff;
+  }
+
+  .reporte-footer span {
+    white-space: nowrap;
+  }
+
+  .reporte-tabla thead,
+  .stock-matrix-table thead th {
+    background: var(--report-primary) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .reporte-tabla,
+  .stock-matrix-table {
+    border-color: var(--report-border) !important;
+  }
+
+  .reporte-tabla th,
+  .reporte-tabla td,
+  .stock-matrix-table th,
+  .stock-matrix-table td {
+    border-color: var(--report-border) !important;
   }
 }
 
@@ -1727,6 +2055,86 @@ body.auth-body {
   font-size: .92rem;
 }
 
+.combo-select {
+  position: relative;
+}
+
+.combo-native-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.combo-select-input {
+  padding-right: 2.25rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6c7b8a 50%),
+    linear-gradient(135deg, #6c7b8a 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 52%,
+    calc(100% - 12px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.combo-select-input:disabled {
+  cursor: not-allowed;
+  background-color: #eef2f6;
+}
+
+.combo-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1080;
+  display: none;
+  max-height: 230px;
+  overflow-y: auto;
+  padding: .35rem;
+  border: 1px solid #cbd7e4;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(15, 35, 64, .18);
+}
+
+.combo-select.open .combo-select-menu {
+  display: block;
+}
+
+.combo-select-option {
+  width: 100%;
+  display: block;
+  padding: .48rem .6rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #26384a;
+  font-size: .92rem;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.combo-select-option:hover,
+.combo-select-option:focus {
+  outline: none;
+  background: #eef4fb;
+  color: var(--sicis-primary);
+}
+
+.combo-select-option.selected {
+  background: #e7f1ff;
+  color: var(--sicis-primary);
+  font-weight: 700;
+}
+
+.combo-select-option.disabled {
+  color: #8795a4;
+  cursor: default;
+}
+
 .logs-table td {
   vertical-align: top;
 }
@@ -1800,6 +2208,144 @@ body.auth-body {
   font-size: .72rem;
   line-height: 1.2;
   border-radius: 6px;
+}
+
+.stock-general-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin-bottom: .75rem;
+}
+
+.stock-general-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .35rem .65rem;
+  border: 1px solid #d7e0ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #425466;
+  font-size: .85rem;
+}
+
+.stock-matrix-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #dbe5ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.stock-matrix-table {
+  margin: 0;
+  min-width: max-content;
+  font-size: .72rem;
+  line-height: 1.12;
+}
+
+.stock-matrix-table th,
+.stock-matrix-table td {
+  padding: .24rem .3rem;
+  vertical-align: middle;
+}
+
+.stock-matrix-table thead th {
+  background: #1a3a5c;
+  color: #fff;
+  border-color: #244f7c;
+  text-align: center;
+}
+
+.stock-matrix-deposito-col,
+.stock-matrix-deposito {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 220px;
+  max-width: 220px;
+  background: #f8fbff !important;
+  color: #163657;
+  text-align: left;
+}
+
+.stock-matrix-deposito-col {
+  z-index: 3;
+  background: #1a3a5c !important;
+  color: #fff;
+}
+
+.stock-matrix-lote-col {
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
+}
+
+.stock-matrix-insecticida-group {
+  background: #12304f !important;
+  color: #fff !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .8rem;
+  font-weight: 800;
+  letter-spacing: .2px;
+  text-transform: uppercase;
+  white-space: normal;
+}
+
+.stock-matrix-lote-head {
+  display: flex;
+  flex-direction: column;
+  gap: .08rem;
+}
+
+.stock-matrix-ins,
+.stock-matrix-lote,
+.stock-matrix-vto,
+.stock-matrix-dep-name {
+  display: block;
+}
+
+.stock-matrix-ins {
+  font-weight: 700;
+}
+
+.stock-matrix-lote,
+.stock-matrix-vto {
+  font-size: .64rem;
+  opacity: .86;
+}
+
+.stock-matrix-code {
+  font-size: .62rem;
+  font-weight: 700;
+  background: #24527f !important;
+}
+
+.stock-matrix-value,
+.stock-matrix-row-total,
+.stock-matrix-col-total,
+.stock-matrix-grand-total {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-matrix-value {
+  color: #91a0ae;
+}
+
+.stock-matrix-value.has-stock {
+  color: #102a43;
+  font-weight: 700;
+  background: #eef8f1;
+}
+
+.stock-matrix-row-total,
+.stock-matrix-col-total,
+.stock-matrix-grand-total {
+  background: #eaf2fb !important;
+  color: #163657;
+  font-weight: 800;
 }
 
 @media (max-width: 1199.98px) {

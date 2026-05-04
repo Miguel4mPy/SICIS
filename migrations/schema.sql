@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   apellido VARCHAR(100) NOT NULL,
   email VARCHAR(200) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  rol VARCHAR(20) NOT NULL CHECK (rol IN ('admin', 'operador', 'gerente', 'encargado', 'encargado_principal')),
+  rol VARCHAR(20) NOT NULL CHECK (rol IN ('admin', 'gerente', 'encargado', 'encargado_principal')),
   activo BOOLEAN DEFAULT TRUE,
   bloqueado BOOLEAN DEFAULT FALSE,
   intentos_fallidos INTEGER DEFAULT 0,
@@ -55,14 +55,14 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check;
 ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check
-  CHECK (rol IN ('admin', 'operador', 'gerente', 'encargado', 'encargado_principal'));
+  CHECK (rol IN ('admin', 'gerente', 'encargado', 'encargado_principal'));
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_id VARCHAR(255);
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_started_at TIMESTAMPTZ;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_last_seen_at TIMESTAMPTZ;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_ip INET;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS active_session_user_agent TEXT;
 
--- Relación usuario-depósito (un operador puede tener varios depósitos)
+-- Relación usuario-depósito (un usuario puede tener varios depósitos)
 CREATE TABLE IF NOT EXISTS usuario_depositos (
   id SERIAL PRIMARY KEY,
   usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -166,12 +166,31 @@ VALUES
   ('larvicida', 'Larvicida', 4)
 ON CONFLICT (codigo) DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS tipos_movimiento (
+  codigo VARCHAR(30) PRIMARY KEY,
+  nombre VARCHAR(80) NOT NULL,
+  activo BOOLEAN DEFAULT TRUE,
+  orden INTEGER NOT NULL DEFAULT 0,
+  requiere_tipo_uso BOOLEAN DEFAULT FALSE,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (codigo ~ '^[a-z0-9_]{2,30}$')
+);
+
+INSERT INTO tipos_movimiento (codigo, nombre, activo, orden, requiere_tipo_uso)
+VALUES
+  ('interno', 'Interno', true, 1, false),
+  ('espacial', 'Espacial', true, 2, true),
+  ('focal', 'Focal', true, 3, true),
+  ('residual', 'Residual', true, 4, true),
+  ('larvicida', 'Larvicida', true, 5, true)
+ON CONFLICT (codigo) DO NOTHING;
+
 -- ============================================================
 -- LOTES DE INSECTICIDAS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS lotes (
   id SERIAL PRIMARY KEY,
-  codigo_lote VARCHAR(50) UNIQUE NOT NULL,
+  codigo_lote VARCHAR(50) NOT NULL,
   insecticida_id INTEGER NOT NULL REFERENCES insecticidas(id),
   unidad_medida VARCHAR(20) NOT NULL DEFAULT 'litro',
   presentacion_codigo VARCHAR(30) REFERENCES presentaciones_insecticida(codigo),
@@ -184,6 +203,10 @@ CREATE TABLE IF NOT EXISTS lotes (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE lotes DROP CONSTRAINT IF EXISTS lotes_codigo_lote_key;
+ALTER TABLE lotes DROP CONSTRAINT IF EXISTS lotes_insecticida_codigo_lote_key;
+ALTER TABLE lotes ADD CONSTRAINT lotes_insecticida_codigo_lote_key
+  UNIQUE (insecticida_id, codigo_lote);
 ALTER TABLE lotes ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(20) NOT NULL DEFAULT 'litro';
 ALTER TABLE lotes ADD COLUMN IF NOT EXISTS presentacion_codigo VARCHAR(30);
 ALTER TABLE lotes DROP CONSTRAINT IF EXISTS lotes_presentacion_codigo_fkey;
@@ -230,6 +253,10 @@ CREATE TABLE IF NOT EXISTS movimientos (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE movimientos DROP CONSTRAINT IF EXISTS movimientos_tipo_movimiento_check;
+ALTER TABLE movimientos DROP CONSTRAINT IF EXISTS movimientos_tipo_movimiento_fkey;
+ALTER TABLE movimientos ADD CONSTRAINT movimientos_tipo_movimiento_fkey
+  FOREIGN KEY (tipo_movimiento) REFERENCES tipos_movimiento(codigo);
 ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS confirmado_at TIMESTAMPTZ;
 
 -- ============================================================
@@ -304,7 +331,9 @@ CREATE TRIGGER trg_insecticidas_updated BEFORE UPDATE ON insecticidas FOR EACH R
 CREATE TRIGGER trg_lotes_updated BEFORE UPDATE ON lotes FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_movimientos_updated BEFORE UPDATE ON movimientos FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS trg_tipos_uso_insecticida_updated ON tipos_uso_insecticida;
+DROP TRIGGER IF EXISTS trg_tipos_movimiento_updated ON tipos_movimiento;
 CREATE TRIGGER trg_tipos_uso_insecticida_updated BEFORE UPDATE ON tipos_uso_insecticida FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_tipos_movimiento_updated BEFORE UPDATE ON tipos_movimiento FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_presentaciones_insecticida_updated BEFORE UPDATE ON presentaciones_insecticida FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Función para calcular semana epidemiológica (semana del año comenzando en domingo)

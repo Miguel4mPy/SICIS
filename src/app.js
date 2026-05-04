@@ -3,26 +3,44 @@ const express = require('express');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const helmet = require('helmet');
-const flash = require('connect-flash');
+const flash = require('./middleware/flash');
 const methodOverride = require('method-override');
 const path = require('path');
 const pool = require('../config/database');
 const { loadUser } = require('./middleware/auth');
+const csrfProtection = require('./middleware/csrf');
 const { formatearFecha, formatearCantidad, tipoMovimientoLabel, tipoDepositoLabel, estadoVencimiento } = require('./utils/helpers');
 const { logSystemEvent } = require('./utils/systemLogger');
 const moment = require('moment');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
-const SESSION_IDLE_MINUTES = parseInt(process.env.SESSION_IDLE_MINUTES, 10) || 15;
+function parsePort(value) {
+  const port = Number.parseInt(value, 10);
 
-let appUrl;
-try {
-  appUrl = new URL(process.env.APP_URL || `http://localhost:${PORT}`);
-} catch (_) {
-  appUrl = new URL(`http://localhost:${PORT}`);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`PORT invalido: ${value}. Usa un numero entre 1 y 65535.`);
+  }
+
+  return port;
 }
+
+function parseAppUrl(value, fallbackPort) {
+  const fallbackUrl = `http://localhost:${fallbackPort}`;
+
+  if (!value) return new URL(fallbackUrl);
+
+  try {
+    return new URL(value);
+  } catch (_) {
+    console.warn(`APP_URL invalido (${value}). Se usara ${fallbackUrl}.`);
+    return new URL(fallbackUrl);
+  }
+}
+
+const app = express();
+const PORT = parsePort(process.env.PORT || '3000');
+const HOST = (process.env.HOST || '0.0.0.0').trim();
+const SESSION_IDLE_MINUTES = parseInt(process.env.SESSION_IDLE_MINUTES, 10) || 15;
+const appUrl = parseAppUrl(process.env.APP_URL, PORT);
 
 const isLocalAppUrl = ['localhost', '127.0.0.1', '::1'].includes(appUrl.hostname);
 const useSecureCookies = process.env.SESSION_COOKIE_SECURE
@@ -125,6 +143,7 @@ app.use((req, res, next) => {
 
 // Flash
 app.use(flash());
+app.use(csrfProtection);
 
 // Load user
 app.use(loadUser);
@@ -141,6 +160,13 @@ app.use((req, res, next) => {
   res.locals.tipoDepositoLabel = tipoDepositoLabel;
   res.locals.estadoVencimiento = estadoVencimiento;
   res.locals.sessionIdleMs = SESSION_IDLE_MINUTES * 60 * 1000;
+  res.locals.safeJson = value => JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, char => ({
+    '<': '\\u003c',
+    '>': '\\u003e',
+    '&': '\\u0026',
+    '\u2028': '\\u2028',
+    '\u2029': '\\u2029'
+  }[char]));
   next();
 });
 
@@ -183,17 +209,39 @@ app.use((err, req, res, next) => {
   res.status(500).render('errors/500', { title: 'Error interno', layout: 'layouts/main', error: process.env.NODE_ENV !== 'production' ? err.message : null });
 });
 
+process.on('unhandledRejection', (reason) => {
+  console.error('ERROR: Promesa rechazada no controlada.');
+  console.error(reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('ERROR: Excepcion no controlada.');
+  console.error(err);
+  process.exit(1);
+});
+
 const server = app.listen(PORT, HOST, () => {
+  const localUrl = `http://localhost:${PORT}`;
+  const bindUrl = `http://${HOST}:${PORT}`;
+
   console.log(`\n🦟 SICIS - Sistema Informático de Control de Insecticida del SENEPA`);
-  console.log(`🚀 Servidor corriendo en http://${HOST}:${PORT}`);
-  console.log(`📡 Acceso LAN configurado por APP_URL: ${process.env.APP_URL || `http://localhost:${PORT}`}`);
-  console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}\n`);
+  console.log(`🚀 Servidor escuchando en ${bindUrl}`);
+  console.log(`💻 Acceso local: ${localUrl}`);
+  console.log(`📡 URL publica configurada por APP_URL: ${appUrl.href}`);
+  console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
+
+  if (HOST === '0.0.0.0') {
+    console.log('📶 HOST=0.0.0.0 acepta conexiones por localhost y por la IP LAN del servidor.');
+  }
+
+  console.log('');
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`\nERROR: El puerto ${PORT} ya esta en uso.`);
-    console.error('Cierra la otra instancia de SICIS o cambia PORT en el archivo .env.\n');
+    console.error('Cierra la otra instancia de SICIS, detiene nodemon duplicado o cambia PORT en el archivo .env.\n');
     process.exit(1);
   }
 

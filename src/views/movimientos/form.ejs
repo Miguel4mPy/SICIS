@@ -10,31 +10,30 @@
     <form method="POST" action="/movimientos" id="movForm">
       <div class="row g-3">
 
-        <!-- Tipo de movimiento y categoria -->
+        <!-- Categoria y tipo de movimiento -->
         <div class="col-md-6">
-          <label class="form-label required">Tipo de Movimiento</label>
-          <select name="tipo_movimiento" class="form-select" required id="tipoMovimientoSelect" onchange="filtrarInsecticidasPorTipo()">
+          <label class="form-label required">Categoria</label>
+          <select name="categoria" class="form-select" required id="categoriaSelect">
             <option value="">Seleccionar...</option>
-            <% for (const t of ['interno','espacial','focal','residual','larvicida']) { %>
-            <option value="<%= t %>"><%= tipoMovimientoLabel(t) %></option>
+            <% for (const c of (categorias || [])) { %>
+            <option value="<%= c.value %>"><%= c.label %></option>
             <% } %>
           </select>
         </div>
         <div class="col-md-6">
-          <label class="form-label required">Categoria</label>
-          <select name="categoria" class="form-select" required id="categoriaSelect" onchange="onCategoriaChange()">
+          <label class="form-label required">Tipo de Movimiento</label>
+          <select name="tipo_movimiento" class="form-select" required id="tipoMovimientoSelect">
             <option value="">Seleccionar...</option>
-            <option value="entrada">Entrada (ingreso al deposito)</option>
-            <option value="salida">Salida (uso / aplicacion)</option>
-            <option value="transferencia">Transferencia (entre depositos)</option>
-            <option value="ajuste">Ajuste de Inventario</option>
+            <% for (const t of (tiposMovimiento || [])) { %>
+            <option value="<%= t.value %>" data-requiere-uso="<%= t.requiere_tipo_uso ? 'true' : 'false' %>"><%= t.label || tipoMovimientoLabel(t.value) %></option>
+            <% } %>
           </select>
         </div>
 
         <!-- Insecticida y Lote -->
         <div class="col-md-6">
           <label class="form-label required">Insecticida</label>
-          <select name="insecticida_id_filtro" class="form-select" id="insectSelect" onchange="filtrarLotes()">
+          <select name="insecticida_id_filtro" class="form-select" id="insectSelect">
             <option value="">Seleccionar insecticida...</option>
             <% for (const i of insecticidas) { %>
             <% const usos = Array.isArray(i.tipo_usos) && i.tipo_usos.length ? i.tipo_usos : [i.tipo_uso]; %>
@@ -44,13 +43,8 @@
         </div>
         <div class="col-md-6">
           <label class="form-label required">Lote</label>
-          <select name="lote_id" class="form-select" id="loteSelect" required onchange="onLoteChange()">
-            <option value="">Seleccionar lote...</option>
-            <% for (const l of lotes) { %>
-            <option value="<%= l.id %>" data-ins="<%= l.insecticida_id %>" data-vence="<%= l.fecha_vencimiento %>" data-unidad="<%= l.unidad_medida %>">
-              <%= l.codigo_lote %> - Vence: <%= new Date(l.fecha_vencimiento).toLocaleDateString('es-PY') %>
-            </option>
-            <% } %>
+          <select name="lote_id" class="form-select" id="loteSelect" required>
+            <option value="">Seleccione primero un insecticida...</option>
           </select>
           <div id="loteInfo" class="form-text"></div>
         </div>
@@ -58,10 +52,10 @@
         <!-- Deposito Origen -->
         <div class="col-md-6" id="origenWrap">
           <label class="form-label" id="origenLabel">Deposito Origen</label>
-          <select name="deposito_origen_id" class="form-select" id="origenSelect" onchange="cargarStockDisponible()">
+          <select name="deposito_origen_id" class="form-select" id="origenSelect">
             <option value="">Seleccionar...</option>
             <% for (const d of depositos) { %>
-            <option value="<%= d.id %>"><%= d.nombre %> (Nivel <%= d.nivel %>)</option>
+            <option value="<%= d.id %>" data-nivel="<%= d.nivel %>"><%= d.nombre %> (Nivel <%= d.nivel %>)</option>
             <% } %>
           </select>
           <div id="stockDisponible" class="form-text text-success fw-bold"></div>
@@ -73,7 +67,7 @@
           <select name="deposito_destino_id" class="form-select" id="destinoSelect">
             <option value="">Seleccionar...</option>
             <% for (const d of depositos) { %>
-            <option value="<%= d.id %>"><%= d.nombre %> (Nivel <%= d.nivel %>)</option>
+            <option value="<%= d.id %>" data-nivel="<%= d.nivel %>"><%= d.nombre %> (Nivel <%= d.nivel %>)</option>
             <% } %>
           </select>
         </div>
@@ -112,15 +106,18 @@
 
 <script>
 // Datos lotes para filtrado
-window.movimientoLotesData = <%- JSON.stringify(lotes.map(l => ({ id: l.id, insecticida_id: l.insecticida_id, codigo_lote: l.codigo_lote, fecha_vencimiento: l.fecha_vencimiento, unidad_medida: l.unidad_medida }))) %>;
+window.movimientoLotesData = <%- safeJson(lotes.map(l => ({ id: l.id, insecticida_id: l.insecticida_id, codigo_lote: l.codigo_lote, fecha_vencimiento: l.fecha_vencimiento, unidad_medida: l.unidad_medida }))) %>;
+window.movimientoUsuarioRol = <%- safeJson(rolUsuario || '') %>;
 
 function filtrarInsecticidasPorTipo() {
-  const tipo = document.getElementById('tipoMovimientoSelect').value;
+  const tipoSelect = document.getElementById('tipoMovimientoSelect');
+  const tipo = tipoSelect.value;
+  const requiereUso = tipoSelect.selectedOptions[0]?.dataset.requiereUso === 'true';
   const insectSelect = document.getElementById('insectSelect');
   Array.from(insectSelect.options).forEach(opt => {
     if (!opt.value) return;
     const usos = (opt.dataset.usos || '').split(',');
-    opt.hidden = Boolean(tipo && tipo !== 'interno' && !usos.includes(tipo));
+    opt.hidden = Boolean(requiereUso && tipo && !usos.includes(tipo));
   });
   if (insectSelect.selectedOptions[0]?.hidden) {
     insectSelect.value = '';
@@ -131,10 +128,25 @@ function filtrarInsecticidasPorTipo() {
 function filtrarLotes() {
   const insId = document.getElementById('insectSelect').value;
   const sel = document.getElementById('loteSelect');
+  const loteInfo = document.getElementById('loteInfo');
+  const unidadLabel = document.getElementById('unidadLabel');
   sel.innerHTML = '<option value="">Seleccionar lote...</option>';
   document.getElementById('stockDisponible').textContent = '';
+  if (loteInfo) loteInfo.textContent = '';
+  if (unidadLabel) unidadLabel.textContent = '-';
+
+  if (!insId) {
+    sel.innerHTML = '<option value="">Seleccione primero un insecticida...</option>';
+    return;
+  }
+
   const lotesData = window.movimientoLotesData || [];
-  const filtrados = insId ? lotesData.filter(l => l.insecticida_id == insId) : lotesData;
+  const filtrados = lotesData.filter(l => l.insecticida_id == insId);
+  if (!filtrados.length) {
+    sel.innerHTML = '<option value="">Sin lotes vigentes para este insecticida</option>';
+    return;
+  }
+
   filtrados.forEach(l => {
     const opt = document.createElement('option');
     opt.value = l.id;
@@ -178,6 +190,15 @@ function onCategoriaChange() {
   const dw = document.getElementById('destinoWrap');
   const os = document.getElementById('origenSelect');
   const ds = document.getElementById('destinoSelect');
+  const limitarDestinoNivel1 = window.movimientoUsuarioRol === 'encargado_principal' && cat === 'entrada';
+
+  Array.from(ds.options).forEach(opt => {
+    if (!opt.value) return;
+    opt.hidden = limitarDestinoNivel1 && opt.dataset.nivel !== '1';
+  });
+  if (limitarDestinoNivel1 && ds.selectedOptions[0]?.hidden) {
+    ds.value = '';
+  }
 
   if (cat === 'entrada') {
     ow.style.display = 'none'; os.required = false;
@@ -188,12 +209,18 @@ function onCategoriaChange() {
   } else if (cat === 'transferencia') {
     ow.style.display = ''; os.required = true;
     dw.style.display = ''; ds.required = true;
+  } else if (cat === 'ajuste') {
+    ow.style.display = 'none'; os.required = false; os.value = '';
+    dw.style.display = ''; ds.required = true;
   } else {
     ow.style.display = ''; os.required = false;
     dw.style.display = ''; ds.required = false;
   }
+
+  if (window.sicisUpdateComboSelect) window.sicisUpdateComboSelect(ds);
 }
 
 onCategoriaChange();
 filtrarInsecticidasPorTipo();
+filtrarLotes();
 </script>

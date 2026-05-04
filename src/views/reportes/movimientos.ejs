@@ -9,9 +9,9 @@
       </ol>
     </nav>
   </div>
-  <a href="/reportes/movimientos?<%= querystring ? querystring + '&' : '' %>formato=imprimir" target="_blank" class="btn btn-outline-secondary">
+  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
     <i class="bi bi-printer me-1"></i>Imprimir
-  </a>
+  </button>
 </div>
 
 <div class="card shadow-sm mb-4 d-print-none">
@@ -34,7 +34,7 @@
           <input type="number" class="form-control form-control-sm" name="semana" min="1" max="53" value="<%= filtros.semana || '' %>">
         </div>
         <div class="col-md-2">
-          <label class="form-label small fw-semibold">Anio</label>
+          <label class="form-label small fw-semibold">Año</label>
           <input type="number" class="form-control form-control-sm" name="anio" min="2020" max="2099" value="<%= filtros.anio || new Date().getFullYear() %>">
         </div>
         <div class="col-md-2">
@@ -99,11 +99,6 @@
       <%= filtros.fecha_desde ? `Desde ${formatearFecha(filtros.fecha_desde)}` : 'Todos los registros' %>
       <%= filtros.fecha_hasta ? ` hasta ${formatearFecha(filtros.fecha_hasta)}` : '' %>
     </div>
-    <div class="membrete-meta">
-      Generado por: <%= user ? `${user.nombre} ${user.apellido}` : '' %> |
-      Fecha: <%= new Date().toLocaleString('es-PY') %> |
-      Total registros: <%= movimientos.length %>
-    </div>
   </div>
 
   <% if (!print) { %>
@@ -128,6 +123,19 @@
   <div class="card shadow-sm">
     <div class="table-responsive">
       <table class="table table-sm table-hover align-middle mb-0 reporte-tabla">
+        <colgroup>
+          <col style="width: 11%">
+          <col style="width: 7%">
+          <col style="width: 6%">
+          <col style="width: 7%">
+          <col style="width: 14%">
+          <col style="width: 8%">
+          <col style="width: 12%">
+          <col style="width: 12%">
+          <col style="width: 8%">
+          <col style="width: 10%">
+          <col style="width: 5%">
+        </colgroup>
         <thead class="table-dark">
           <tr>
             <th>Nro. Movimiento</th>
@@ -167,5 +175,10 @@
         </tbody>
       </table>
     </div>
+  </div>
+  <div class="reporte-footer">
+    <span>Generado por: <strong><%= user ? `${user.nombre} ${user.apellido}` : '' %></strong></span>
+    <span>Fecha y hora: <strong><%= new Date().toLocaleString('es-PY') %></strong></span>
+    <span>Total registros: <strong><%= movimientos.length %></strong></span>
   </div>
 </div>

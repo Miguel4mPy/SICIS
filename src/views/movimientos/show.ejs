@@ -3,13 +3,15 @@
 
 <div class="d-flex gap-2 mb-3">
   <a href="/movimientos" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
-  <a href="#" onclick="window.print()" class="btn btn-outline-primary btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</a>
+  <button type="button" class="btn btn-outline-primary btn-sm" data-sicis-print>
+    <i class="bi bi-printer me-1"></i>Imprimir
+  </button>
   <% if (movimiento.estado !== 'anulado' && (userRol === 'admin' || userRol === 'gerente')) { %>
   <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#anularModal">
     <i class="bi bi-x-circle me-1"></i>Anular
   </button>
   <% } %>
-  <% if (movimiento.estado === 'pendiente') { %>
+  <% if (movimiento.estado === 'pendiente' && puedeConfirmar) { %>
   <form method="POST" action="/movimientos/<%= movimiento.id %>/confirmar" class="d-inline">
     <button type="submit" class="btn btn-success btn-sm" data-confirm="Confirmar este movimiento y sumar el stock al deposito destino?">
       <i class="bi bi-check-circle me-1"></i>Confirmar

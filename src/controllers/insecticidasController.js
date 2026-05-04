@@ -464,11 +464,47 @@ exports.loteEdit = async (req, res) => {
 
 exports.loteUpdate = async (req, res) => {
   const { id } = req.params;
-  const { codigo_lote, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones, activo } = req.body;
-  await pool.query('UPDATE lotes SET codigo_lote=$1, unidad_medida=$2, presentacion_codigo=$3, fecha_fabricacion=$4, fecha_vencimiento=$5, observaciones=$6, activo=$7 WHERE id=$8',
-    [codigo_lote, unidad_medida, presentacion_codigo || null, fecha_fabricacion || null, fecha_vencimiento, observaciones, activo === 'on', id]);
-  req.flash('success', 'Lote actualizado.');
-  res.redirect('/lotes');
+  const { codigo_lote, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones, activo, cantidad_inicial } = req.body;
+  try {
+    const params = [
+      codigo_lote,
+      unidad_medida,
+      presentacion_codigo || null,
+      fecha_fabricacion || null,
+      fecha_vencimiento,
+      observaciones,
+      activo === 'on'
+    ];
+    let cantidadSql = '';
+
+    if (req.session.userRol === 'admin') {
+      const cantidad = Number(cantidad_inicial);
+      if (Number.isNaN(cantidad) || cantidad < 0) {
+        throw new Error('La cantidad inicial debe ser mayor o igual a cero.');
+      }
+      params.push(cantidad);
+      cantidadSql = `, cantidad_inicial=$${params.length}`;
+    }
+
+    params.push(id);
+    await pool.query(`
+      UPDATE lotes
+      SET codigo_lote=$1,
+          unidad_medida=$2,
+          presentacion_codigo=$3,
+          fecha_fabricacion=$4,
+          fecha_vencimiento=$5,
+          observaciones=$6,
+          activo=$7
+          ${cantidadSql}
+      WHERE id=$${params.length}
+    `, params);
+    req.flash('success', 'Lote actualizado.');
+    res.redirect('/lotes');
+  } catch (err) {
+    req.flash('error', err.message || 'Error al actualizar lote.');
+    res.redirect(`/lotes/${id}/editar`);
+  }
 };
 
 exports.loteDelete = async (req, res) => {

@@ -6,8 +6,8 @@ async function getEncargados(client = pool) {
   const result = await client.query(`
     SELECT id, nombre, apellido, email
     FROM usuarios
-    WHERE rol = 'encargado' AND activo = true
-    ORDER BY apellido, nombre
+    WHERE rol IN ('encargado', 'encargado_principal') AND activo = true
+    ORDER BY rol DESC, apellido, nombre
   `);
   return result.rows;
 }
@@ -24,7 +24,7 @@ async function syncResponsableDeposito(client, depositoId, responsableUsuarioId)
   }
 
   const user = await client.query(
-    "SELECT id, nombre, apellido FROM usuarios WHERE id = $1 AND rol = 'encargado' AND activo = true",
+    "SELECT id, nombre, apellido FROM usuarios WHERE id = $1 AND rol IN ('encargado', 'encargado_principal') AND activo = true",
     [responsableUsuarioId]
   );
   if (!user.rows[0]) throw new Error('Seleccione un usuario encargado valido.');

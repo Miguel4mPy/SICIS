@@ -9,9 +9,9 @@
       </ol>
     </nav>
   </div>
-  <a href="/reportes/grafico?<%= querystring ? querystring + '&' : '' %>formato=imprimir" target="_blank" class="btn btn-outline-secondary">
+  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
     <i class="bi bi-printer me-1"></i>Imprimir
-  </a>
+  </button>
 </div>
 
 <div class="card shadow-sm mb-4 d-print-none">
@@ -43,7 +43,7 @@
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label small fw-semibold">Anio</label>
+        <label class="form-label small fw-semibold">Año</label>
         <select class="form-select form-select-sm" name="anio">
           <% anios.forEach(a => { %>
           <option value="<%= a %>" <%= filtros.anio == a ? 'selected' : '' %>><%= a %></option>
@@ -72,28 +72,80 @@
     <img src="/images/logo-senepa.png" alt="SENEPA" class="membrete-logo">
   </div>
   <div class="membrete-titulo">REPORTES GRAFICOS - ANALISIS DE INSECTICIDAS</div>
-  <div class="membrete-meta">
-    Generado por: <%= user ? `${user.nombre} ${user.apellido}` : '' %> |
-    Fecha: <%= new Date().toLocaleString('es-PY') %>
-  </div>
 </div>
 
 <div class="card shadow-sm">
   <div class="card-header bg-white py-3">
     <h6 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Resultado</h6>
   </div>
-  <div class="card-body" style="min-height: 360px">
-    <canvas id="chartReporte" style="max-height: 320px"></canvas>
+  <div class="card-body" style="min-height: 460px">
+    <canvas id="chartReporte" style="max-height: 430px"></canvas>
     <div id="chartEmpty" class="text-center text-muted py-5 d-none">No hay datos para los filtros seleccionados.</div>
   </div>
+</div>
+<div class="reporte-footer">
+  <span>Generado por: <strong><%= user ? `${user.nombre} ${user.apellido}` : '' %></strong></span>
+  <span>Fecha y hora: <strong><%= new Date().toLocaleString('es-PY') %></strong></span>
+  <span>Reporte: <strong>Graficos</strong></span>
 </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-var chartData = <%- chartData || '{"labels":[],"datasets":[]}' %>;
+var chartData = <%- safeJson(chartData || { labels: [], datasets: [] }) %>;
 var canvas = document.getElementById('chartReporte');
 var empty = document.getElementById('chartEmpty');
+var isStockPorInsecticida = chartData.chartType === 'stock_por_insecticida';
+
+function formatoCantidadGrafico(value) {
+  return Number(value || 0).toLocaleString('es-PY', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3
+  });
+}
+
+var stockSegmentLabelsPlugin = {
+  id: 'stockSegmentLabels',
+  afterDatasetsDraw(chart) {
+    if (!isStockPorInsecticida) return;
+
+    var ctx = chart.ctx;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 10px Barlow, Arial, sans-serif';
+
+    chart.data.datasets.forEach(function(dataset, datasetIndex) {
+      var meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta || meta.hidden) return;
+
+      meta.data.forEach(function(element, index) {
+        var value = Number(dataset.data[index] || 0);
+        if (!value || !dataset.meta) return;
+
+        var props = element.getProps(['x', 'y', 'base', 'width'], true);
+        var segmentHeight = Math.abs(props.base - props.y);
+        var segmentWidth = Math.max(props.width || 0, 0);
+        if (segmentHeight < 38 || segmentWidth < 72) return;
+
+        var isWarning = dataset.meta.estado_vencimiento === 'Proximo';
+        ctx.fillStyle = isWarning ? '#1f2937' : '#ffffff';
+
+        var lines = [
+          'Lote: ' + dataset.meta.lote,
+          'Stock: ' + formatoCantidadGrafico(value) + ' ' + (dataset.meta.unidad_medida || ''),
+          'Vto.: ' + dataset.meta.vencimiento
+        ];
+        var y = props.y + (props.base - props.y) / 2 - ((lines.length - 1) * 6);
+        lines.forEach(function(line, lineIndex) {
+          ctx.fillText(line, props.x, y + (lineIndex * 12));
+        });
+      });
+    });
+
+    ctx.restore();
+  }
+};
 
 if (!chartData.labels || chartData.labels.length === 0) {
   canvas.classList.add('d-none');
@@ -106,9 +158,77 @@ if (!chartData.labels || chartData.labels.length === 0) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom' } },
-      scales: '<%= tipo_grafico === 'movimientos_por_tipo' ? 'none' : 'linear' %>' === 'none' ? {} : { y: { beginAtZero: true } }
-    }
+      plugins: {
+        title: {
+          display: isStockPorInsecticida,
+          text: 'Stock por insecticida apilado por lote',
+          color: '#1f2937',
+          font: { size: 15, weight: '700' },
+          padding: { bottom: 16 }
+        },
+        subtitle: {
+          display: isStockPorInsecticida,
+          text: 'Columna: insecticida | Segmento: lote con stock, vencimiento y estado',
+          color: '#64748b',
+          font: { size: 11 },
+          padding: { bottom: 8 }
+        },
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 14,
+            boxHeight: 14,
+            padding: 12,
+            font: { size: isStockPorInsecticida ? 10 : 12 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            title: function(items) {
+              return items[0]?.label || '';
+            },
+            label: function(context) {
+              if (!isStockPorInsecticida || !context.dataset.meta) {
+                return context.dataset.label + ': ' + formatoCantidadGrafico(context.parsed.y || context.raw);
+              }
+
+              var meta = context.dataset.meta;
+              return [
+                'Lote: ' + meta.lote,
+                'Stock: ' + formatoCantidadGrafico(context.raw) + ' ' + (meta.unidad_medida || ''),
+                'Vencimiento: ' + meta.vencimiento,
+                'Estado: ' + meta.estado_vencimiento
+              ];
+            }
+          }
+        }
+      },
+      scales: '<%= tipo_grafico === 'movimientos_por_tipo' ? 'none' : 'linear' %>' === 'none'
+        ? {}
+        : {
+            x: {
+              stacked: isStockPorInsecticida,
+              title: {
+                display: isStockPorInsecticida,
+                text: 'Insecticida',
+                color: '#334155',
+                font: { size: 12, weight: '700' }
+              }
+            },
+            y: {
+              beginAtZero: true,
+              stacked: isStockPorInsecticida,
+              title: {
+                display: isStockPorInsecticida,
+                text: 'Stock total',
+                color: '#334155',
+                font: { size: 12, weight: '700' }
+              },
+              ticks: { callback: value => formatoCantidadGrafico(value) }
+            }
+          }
+    },
+    plugins: [stockSegmentLabelsPlugin]
   });
 }
 </script>

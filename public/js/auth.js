@@ -17,6 +17,22 @@ function togglePasswordVisibility(button) {
 
 window.togglePasswordVisibility = togglePasswordVisibility;
 
+function injectCsrfTokens() {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content;
+  if (!token) return;
+
+  document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(form => {
+    let input = form.querySelector('input[name="_csrf"]');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = '_csrf';
+      form.appendChild(input);
+    }
+    input.value = token;
+  });
+}
+
 document.addEventListener('click', event => {
   if (event.defaultPrevented) return;
   const button = event.target.closest('[data-toggle-password]');
@@ -25,3 +41,5 @@ document.addEventListener('click', event => {
   event.preventDefault();
   togglePasswordVisibility(button);
 });
+
+document.addEventListener('DOMContentLoaded', injectCsrfTokens);
