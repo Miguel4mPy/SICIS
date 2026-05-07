@@ -399,7 +399,7 @@ function initSicisContent(root = document) {
     btn.dataset.sicisPrintBound = 'true';
     btn.addEventListener('click', (event) => {
       event.preventDefault();
-      window.print();
+      printSicisReport();
     });
   });
 
@@ -467,6 +467,7 @@ function initPartialNavigation() {
     if (url.origin !== window.location.origin) return false;
     if (url.pathname.startsWith('/auth/')) return false;
     if (url.pathname.startsWith('/api/')) return false;
+    if (url.pathname.startsWith('/reportes/') && url.pathname.endsWith('/exportar')) return false;
     if (url.searchParams.get('formato') === 'imprimir') return false;
 
     return true;
@@ -582,9 +583,31 @@ function initIdleLogout() {
   resetTimer();
 }
 
-window.imprimirReporte = function () {
+function printSicisReport() {
+  const hasPrintableReport = Boolean(document.getElementById('zonaImprimible'));
+
+  if (hasPrintableReport && window.location.pathname.startsWith('/reportes/')) {
+    const printUrl = new URL(window.location.href);
+    printUrl.searchParams.set('formato', 'imprimir');
+    window.location.href = printUrl.href;
+    return;
+  }
+
+  const originalTitle = document.title;
+
+  if (hasPrintableReport) document.title = '';
+
+  const restoreTitle = () => {
+    document.title = originalTitle;
+    window.removeEventListener('afterprint', restoreTitle);
+  };
+
+  window.addEventListener('afterprint', restoreTitle);
   window.print();
-};
+  setTimeout(restoreTitle, 1200);
+}
+
+window.imprimirReporte = printSicisReport;
 
 initSidebarShell();
 initTopbarClock();

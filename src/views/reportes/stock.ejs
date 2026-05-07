@@ -9,9 +9,23 @@
       </ol>
     </nav>
   </div>
-  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
-    <i class="bi bi-printer me-1"></i>Imprimir
-  </button>
+  <div class="d-flex gap-2 flex-wrap">
+    <% if (userRol === 'admin' || userRol === 'gerente') { %>
+    <div class="dropdown">
+      <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-download me-1"></i>Exportar
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="/reportes/stock/exportar?<%= querystring ? `${querystring}&` : '' %>formato=csv">CSV</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock/exportar?<%= querystring ? `${querystring}&` : '' %>formato=xlsx">XLSX</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock/exportar?<%= querystring ? `${querystring}&` : '' %>formato=dbf">DBF</a></li>
+      </ul>
+    </div>
+    <% } %>
+    <button type="button" class="btn btn-outline-secondary" data-sicis-print>
+      <i class="bi bi-printer me-1"></i>Imprimir
+    </button>
+  </div>
 </div>
 
 <div class="card shadow-sm mb-4 d-print-none">
@@ -98,7 +112,7 @@
 
 <div class="card shadow-sm">
   <div class="table-responsive">
-    <table class="table table-sm table-hover align-middle mb-0 reporte-tabla">
+    <table class="table table-sm table-hover align-middle mb-0 reporte-tabla stock-report-table">
       <colgroup>
         <col style="width: 23%">
         <col style="width: 10%">

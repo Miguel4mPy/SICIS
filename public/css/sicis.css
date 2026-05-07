@@ -1202,7 +1202,7 @@ body.auth-body {
    PRINT — Global
 ══════════════════════════════════════════════ */
 @media print {
-  .sidebar, .topbar, .d-print-none, .btn, .dropdown,
+  .sidebar, .topbar, .top-header, .d-print-none, .btn, .dropdown,
   .alert, .form-select, .form-control, .card-header .btn { display: none !important; }
 
   .main-area { margin-left: 0 !important; }
@@ -1292,31 +1292,33 @@ body.auth-body {
     width: 100% !important;
     min-width: 0 !important;
     table-layout: fixed !important;
-    font-size: 4.8pt !important;
-    line-height: 1.05 !important;
+    font-size: 5.6pt !important;
+    line-height: 1.18 !important;
     page-break-inside: avoid;
   }
 
   .stock-matrix-table th,
   .stock-matrix-table td {
-    padding: .05rem .06rem !important;
+    padding: .12rem .1rem !important;
     border-color: #8ea6bd !important;
   }
 
   .stock-matrix-deposito-col,
   .stock-matrix-deposito {
     position: static !important;
-    min-width: 0 !important;
-    width: 9.5% !important;
-    max-width: none !important;
+    min-width: 190px !important;
+    width: 190px !important;
+    max-width: 190px !important;
+    white-space: nowrap !important;
   }
 
   .stock-matrix-lote-col {
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
-    height: 72px !important;
-    vertical-align: bottom !important;
+    height: auto !important;
+    min-height: 28px !important;
+    vertical-align: middle !important;
   }
 
   .stock-matrix-insecticida-group {
@@ -1332,21 +1334,60 @@ body.auth-body {
   }
 
   .stock-matrix-lote-head {
-    display: block !important;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    max-height: 68px;
-    overflow: hidden;
-    text-align: left;
-    white-space: nowrap;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: .04rem !important;
+    max-height: none !important;
+    overflow: visible !important;
+    text-align: center !important;
+    white-space: normal !important;
+    writing-mode: horizontal-tb !important;
+    transform: none !important;
   }
 
   .stock-matrix-ins,
   .stock-matrix-lote,
-  .stock-matrix-vto,
-  .stock-matrix-dep-name {
+  .stock-matrix-vto {
     font-size: inherit !important;
+    white-space: normal !important;
+  }
+
+  .stock-matrix-dep-name {
+    display: inline-block !important;
+    font-size: inherit !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
     white-space: nowrap !important;
+  }
+
+  .stock-matrix-table tbody tr {
+    min-height: 18px !important;
+  }
+
+  .stock-matrix-table tbody th,
+  .stock-matrix-table tbody td {
+    height: 18px !important;
+  }
+
+  .stock-matrix-table tbody tr:nth-child(even) > * {
+    background-color: #f4f8fc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .stock-matrix-table tbody tr:nth-child(odd) > * {
+    background-color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .stock-matrix-table tbody tr:nth-child(even) .stock-matrix-deposito {
+    background-color: #eaf2fb !important;
+  }
+
+  .stock-matrix-table tbody tr:nth-child(odd) .stock-matrix-deposito {
+    background-color: #f8fbff !important;
   }
 
   .stock-matrix-value,
@@ -1492,8 +1533,14 @@ body.auth-body {
   }
 
   .reporte-tabla thead,
-  .stock-matrix-table thead th {
+  .reporte-tabla thead th,
+  .stock-matrix-table thead th,
+  .stock-report-table thead,
+  .stock-report-table thead th {
+    --bs-table-bg: var(--report-primary) !important;
+    --bs-table-color: #fff !important;
     background: var(--report-primary) !important;
+    background-color: var(--report-primary) !important;
     color: #fff !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -2270,7 +2317,7 @@ body.auth-body {
 
 .stock-matrix-table th,
 .stock-matrix-table td {
-  padding: .24rem .3rem;
+  padding: .38rem .42rem;
   vertical-align: middle;
 }
 
@@ -2286,11 +2333,13 @@ body.auth-body {
   position: sticky;
   left: 0;
   z-index: 2;
-  min-width: 220px;
-  max-width: 220px;
+  min-width: 260px;
+  width: 260px;
+  max-width: 260px;
   background: #f8fbff !important;
   color: #163657;
   text-align: left;
+  white-space: nowrap;
 }
 
 .stock-matrix-deposito-col {
@@ -2319,7 +2368,8 @@ body.auth-body {
 .stock-matrix-lote-head {
   display: flex;
   flex-direction: column;
-  gap: .08rem;
+  gap: .12rem;
+  line-height: 1.16;
 }
 
 .stock-matrix-ins,
@@ -2329,14 +2379,44 @@ body.auth-body {
   display: block;
 }
 
+.stock-matrix-dep-name {
+  white-space: nowrap;
+}
+
 .stock-matrix-ins {
   font-weight: 700;
 }
 
 .stock-matrix-lote,
 .stock-matrix-vto {
-  font-size: .64rem;
+  font-size: .68rem;
   opacity: .86;
+}
+
+.stock-matrix-table tbody tr:nth-child(even) > * {
+  background-color: #f7fafc !important;
+}
+
+.stock-matrix-table tbody tr:nth-child(odd) > * {
+  background-color: #fff !important;
+}
+
+.stock-matrix-table tbody tr:nth-child(even) .stock-matrix-deposito {
+  background-color: #edf4fb !important;
+}
+
+.stock-matrix-table tbody tr:nth-child(odd) .stock-matrix-deposito {
+  background-color: #f8fbff !important;
+}
+
+.stock-report-table thead,
+.stock-report-table thead th {
+  --bs-table-bg: #1a3a5c;
+  --bs-table-color: #fff;
+  background: #1a3a5c !important;
+  background-color: #1a3a5c !important;
+  color: #fff !important;
+  border-color: #244f7c !important;
 }
 
 .stock-matrix-code {

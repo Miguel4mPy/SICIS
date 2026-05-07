@@ -9,9 +9,23 @@
       </ol>
     </nav>
   </div>
-  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
-    <i class="bi bi-printer me-1"></i>Imprimir
-  </button>
+  <div class="d-flex gap-2 flex-wrap">
+    <% if (userRol === 'admin' || userRol === 'gerente') { %>
+    <div class="dropdown">
+      <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-download me-1"></i>Exportar
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="/reportes/grafico/exportar?<%= querystring ? `${querystring}&` : '' %>formato=csv">CSV</a></li>
+        <li><a class="dropdown-item" href="/reportes/grafico/exportar?<%= querystring ? `${querystring}&` : '' %>formato=xlsx">XLSX</a></li>
+        <li><a class="dropdown-item" href="/reportes/grafico/exportar?<%= querystring ? `${querystring}&` : '' %>formato=dbf">DBF</a></li>
+      </ul>
+    </div>
+    <% } %>
+    <button type="button" class="btn btn-outline-secondary" data-sicis-print>
+      <i class="bi bi-printer me-1"></i>Imprimir
+    </button>
+  </div>
 </div>
 
 <div class="card shadow-sm mb-4 d-print-none">
@@ -78,8 +92,12 @@
   <div class="card-header bg-white py-3">
     <h6 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Resultado</h6>
   </div>
-  <div class="card-body" style="min-height: 460px">
-    <canvas id="chartReporte" style="max-height: 430px"></canvas>
+  <div class="card-body" style="min-height: <%= tipo_grafico === 'movimientos_por_tipo' ? '620px' : '500px' %>">
+    <div style="height: <%= tipo_grafico === 'movimientos_por_tipo' ? '450px' : '470px' %>">
+      <canvas id="chartReporte"></canvas>
+    </div>
+    <div id="multiChartWrap" class="weekly-unit-charts d-none"></div>
+    <div id="chartLegendCustom" class="chart-custom-legend d-none"></div>
     <div id="chartEmpty" class="text-center text-muted py-5 d-none">No hay datos para los filtros seleccionados.</div>
   </div>
 </div>
@@ -95,7 +113,13 @@
 var chartData = <%- safeJson(chartData || { labels: [], datasets: [] }) %>;
 var canvas = document.getElementById('chartReporte');
 var empty = document.getElementById('chartEmpty');
+var multiChartWrap = document.getElementById('multiChartWrap');
+var customLegend = document.getElementById('chartLegendCustom');
 var isStockPorInsecticida = chartData.chartType === 'stock_por_insecticida';
+var isStockPorInsecticidaPorUnidad = isStockPorInsecticida && Array.isArray(chartData.unitGroups);
+var isMovimientosPorSemanaInsecticida = chartData.chartType === 'movimientos_por_semana_por_unidad';
+var isMovimientosPorTipo = '<%= tipo_grafico %>' === 'movimientos_por_tipo';
+var sicisChartPalette = ['#1e88e5', '#43a047', '#f9a825', '#e53935', '#6d4c41', '#00897b', '#8e24aa', '#546e7a'];
 
 function formatoCantidadGrafico(value) {
   return Number(value || 0).toLocaleString('es-PY', {
@@ -104,44 +128,284 @@ function formatoCantidadGrafico(value) {
   });
 }
 
-var stockSegmentLabelsPlugin = {
-  id: 'stockSegmentLabels',
-  afterDatasetsDraw(chart) {
-    if (!isStockPorInsecticida) return;
+function truncateLabel(text, maxLength) {
+  var value = String(text || '');
+  return value.length > maxLength ? value.slice(0, maxLength - 1) + '...' : value;
+}
 
+function getDataTotal(dataset) {
+  return (dataset.data || []).reduce(function(sum, item) {
+    return sum + Number(item || 0);
+  }, 0);
+}
+
+function distributeLabelRows(items, minY, maxY, gap) {
+  items.sort(function(a, b) {
+    return a.targetY - b.targetY;
+  });
+
+  items.forEach(function(item, index) {
+    item.y = index === 0 ? Math.max(minY, item.targetY) : Math.max(item.targetY, items[index - 1].y + gap);
+  });
+
+  for (var i = items.length - 1; i >= 0; i--) {
+    items[i].y = i === items.length - 1 ? Math.min(maxY, items[i].y) : Math.min(items[i].y, items[i + 1].y - gap);
+  }
+
+  items.forEach(function(item) {
+    item.y = Math.max(minY, Math.min(maxY, item.y));
+  });
+}
+
+function renderMovimientosLegend(data) {
+  if (!customLegend || !isMovimientosPorTipo) return;
+
+  var dataset = data.datasets[0] || { data: [] };
+  var total = getDataTotal(dataset);
+  customLegend.innerHTML = '';
+  customLegend.classList.remove('d-none');
+
+  data.labels.forEach(function(label, index) {
+    var value = Number(dataset.data[index] || 0);
+    if (!value) return;
+
+    var percent = total ? Math.round((value / total) * 100) : 0;
+    var item = document.createElement('div');
+    item.className = 'chart-custom-legend-item';
+
+    var swatch = document.createElement('span');
+    swatch.className = 'chart-custom-legend-swatch';
+    swatch.style.backgroundColor = dataset.backgroundColor[index] || sicisChartPalette[index % sicisChartPalette.length];
+
+    var text = document.createElement('span');
+    text.textContent = label + ' - ' + formatoCantidadGrafico(value) + ' (' + percent + '%)';
+
+    item.append(swatch, text);
+    customLegend.appendChild(item);
+  });
+}
+
+function applyDatasetStyle(data) {
+  if (!data.datasets) return data;
+
+  data.datasets.forEach(function(dataset, datasetIndex) {
+    if (isMovimientosPorTipo) {
+      dataset.backgroundColor = data.labels.map(function(_, index) {
+        return sicisChartPalette[index % sicisChartPalette.length];
+      });
+      dataset.borderColor = '#ffffff';
+      dataset.borderWidth = 2;
+      return;
+    }
+
+    if (!isStockPorInsecticida) {
+      dataset.backgroundColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
+      dataset.borderColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
+      dataset.borderWidth = 1;
+    }
+  });
+
+  return data;
+}
+
+chartData = applyDatasetStyle(chartData);
+
+function styleChartDatasets(data) {
+  (data.datasets || []).forEach(function(dataset, datasetIndex) {
+    dataset.backgroundColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
+    dataset.borderColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
+    dataset.borderWidth = 1;
+    dataset.maxBarThickness = 44;
+    dataset.categoryPercentage = 0.58;
+    dataset.barPercentage = 0.78;
+    dataset.base = 0;
+  });
+  return data;
+}
+
+var sicisDataLabelsPlugin = {
+  id: 'sicisDataLabels',
+  afterDatasetsDraw(chart) {
     var ctx = chart.ctx;
+    var chartArea = chart.chartArea;
+
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = '600 10px Barlow, Arial, sans-serif';
 
-    chart.data.datasets.forEach(function(dataset, datasetIndex) {
-      var meta = chart.getDatasetMeta(datasetIndex);
-      if (!meta || meta.hidden) return;
+    if (isMovimientosPorTipo) {
+      if (chart.width < 560) {
+        ctx.restore();
+        return;
+      }
 
-      meta.data.forEach(function(element, index) {
+      var dataset = chart.data.datasets[0] || { data: [] };
+      var total = getDataTotal(dataset);
+      var arcMeta = chart.getDatasetMeta(0);
+      var labelItems = [];
+
+      arcMeta.data.forEach(function(element, index) {
         var value = Number(dataset.data[index] || 0);
-        if (!value || !dataset.meta) return;
+        if (!value) return;
 
-        var props = element.getProps(['x', 'y', 'base', 'width'], true);
-        var segmentHeight = Math.abs(props.base - props.y);
-        var segmentWidth = Math.max(props.width || 0, 0);
-        if (segmentHeight < 38 || segmentWidth < 72) return;
+        var props = element.getProps(['x', 'y', 'startAngle', 'endAngle', 'outerRadius'], true);
+        var angle = (props.startAngle + props.endAngle) / 2;
+        var percent = total ? Math.round((value / total) * 100) : 0;
+        var side = Math.cos(angle) >= 0 ? 'right' : 'left';
+        var anchorX = props.x + Math.cos(angle) * (props.outerRadius - 2);
+        var anchorY = props.y + Math.sin(angle) * (props.outerRadius - 2);
 
-        var isWarning = dataset.meta.estado_vencimiento === 'Proximo';
-        ctx.fillStyle = isWarning ? '#1f2937' : '#ffffff';
-
-        var lines = [
-          'Lote: ' + dataset.meta.lote,
-          'Stock: ' + formatoCantidadGrafico(value) + ' ' + (dataset.meta.unidad_medida || ''),
-          'Vto.: ' + dataset.meta.vencimiento
-        ];
-        var y = props.y + (props.base - props.y) / 2 - ((lines.length - 1) * 6);
-        lines.forEach(function(line, lineIndex) {
-          ctx.fillText(line, props.x, y + (lineIndex * 12));
+        labelItems.push({
+          side: side,
+          anchorX: anchorX,
+          anchorY: anchorY,
+          lineX: side === 'right' ? props.x + Math.cos(angle) * (props.outerRadius + 22) : props.x + Math.cos(angle) * (props.outerRadius + 22),
+          textX: side === 'right' ? props.x + Math.cos(angle) * (props.outerRadius + 30) : props.x + Math.cos(angle) * (props.outerRadius + 30),
+          targetY: props.y + Math.sin(angle) * (props.outerRadius + 18),
+          title: truncateLabel(chart.data.labels[index], 15),
+          value: formatoCantidadGrafico(value) + ' (' + percent + '%)'
         });
       });
-    });
+
+      ['left', 'right'].forEach(function(side) {
+        var sideItems = labelItems.filter(function(item) {
+          return item.side === side;
+        });
+        distributeLabelRows(sideItems, chartArea.top + 16, chartArea.bottom - 16, 28);
+
+        sideItems.forEach(function(item) {
+          ctx.textAlign = side === 'right' ? 'left' : 'right';
+          ctx.textBaseline = 'middle';
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(item.anchorX, item.anchorY);
+          ctx.lineTo(item.lineX, item.y);
+          ctx.stroke();
+
+          ctx.font = '600 10px Barlow, Arial, sans-serif';
+          ctx.fillStyle = '#1f2937';
+          ctx.fillText(item.title, item.textX, item.y - 7);
+          ctx.font = '700 10px Barlow, Arial, sans-serif';
+          ctx.fillText(item.value, item.textX, item.y + 7);
+        });
+      });
+
+      ctx.restore();
+      return;
+    }
+
+    if (isStockPorInsecticida) {
+      var outsideLabelSlots = {};
+
+      chart.data.datasets.forEach(function(dataset, datasetIndex) {
+        var meta = chart.getDatasetMeta(datasetIndex);
+        if (!meta || meta.hidden) return;
+
+        meta.data.forEach(function(element, index) {
+          var value = Number(dataset.data[index] || 0);
+          if (!value || !dataset.meta) return;
+
+          var props = element.getProps(['x', 'y', 'base', 'width'], true);
+          var segmentHeight = Math.abs(props.base - props.y);
+          var segmentWidth = Math.max(props.width || 0, 0);
+          var hasRoomInside = segmentHeight >= 48 && segmentWidth >= 86;
+          var estado = dataset.meta.estado_vencimiento || 'Sin estado';
+
+          var isWarning = estado === 'Proximo';
+          if (hasRoomInside) {
+            ctx.textAlign = 'center';
+            ctx.fillStyle = isWarning ? '#1f2937' : '#ffffff';
+
+            var lines = [
+              'Vto.: ' + dataset.meta.vencimiento,
+              'Estado: ' + estado
+            ];
+            var y = props.y + (props.base - props.y) / 2 - ((lines.length - 1) * 6);
+            lines.forEach(function(line, lineIndex) {
+              ctx.fillText(line, props.x, y + (lineIndex * 12));
+            });
+            return;
+          }
+
+          var slotKey = String(index);
+          outsideLabelSlots[slotKey] = outsideLabelSlots[slotKey] || 0;
+          var slot = outsideLabelSlots[slotKey]++;
+          var preferredY = props.y - 34 - (slot * 46);
+          var labelY = preferredY < chartArea.top + 28 ? chartArea.top + 28 + (slot * 46) : preferredY;
+          var outsideLines = [
+            'Stock: ' + formatoCantidadGrafico(value) + ' ' + (dataset.meta.unidad_medida || ''),
+            'Vto.: ' + dataset.meta.vencimiento,
+            'Estado: ' + estado
+          ];
+          var labelWidth = 132;
+          var labelHeight = 46;
+          var labelTop = labelY - 18;
+          var labelLeft = props.x - (labelWidth / 2);
+          var labelBottom = labelTop + labelHeight;
+
+          ctx.textAlign = 'center';
+          ctx.fillStyle = 'rgba(255,255,255,.94)';
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(labelLeft, labelTop, labelWidth, labelHeight, 4);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(props.x, Math.max(props.y, chartArea.top + 4));
+          ctx.lineTo(props.x, labelBottom);
+          ctx.stroke();
+
+          ctx.font = '600 10px Barlow, Arial, sans-serif';
+          ctx.fillStyle = '#1f2937';
+          outsideLines.forEach(function(line, lineIndex) {
+            ctx.fillText(line, props.x, labelTop + 12 + (lineIndex * 12));
+          });
+        });
+      });
+    }
+
+    if (isMovimientosPorSemanaInsecticida) {
+      chart.data.datasets.forEach(function(dataset, datasetIndex) {
+        var meta = chart.getDatasetMeta(datasetIndex);
+        if (!meta || meta.hidden) return;
+
+        meta.data.forEach(function(element, index) {
+          var value = Number(dataset.data[index] || 0);
+          if (!value) return;
+
+          var props = element.getProps(['x', 'y', 'base'], true);
+          var segmentHeight = Math.abs(props.base - props.y);
+          if (segmentHeight < 18) return;
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 10px Barlow, Arial, sans-serif';
+          ctx.textAlign = 'center';
+          var unidad = dataset.meta?.unidad_medida || '';
+          ctx.fillText(formatoCantidadGrafico(value) + (unidad ? ' ' + unidad : ''), props.x, props.y + (props.base - props.y) / 2);
+        });
+      });
+    } else if (!isStockPorInsecticida) {
+      chart.data.datasets.forEach(function(dataset, datasetIndex) {
+        var meta = chart.getDatasetMeta(datasetIndex);
+        if (!meta || meta.hidden) return;
+
+        meta.data.forEach(function(element, index) {
+          var value = Number(dataset.data[index] || 0);
+          if (!value) return;
+
+          var props = element.getProps(['x', 'y'], true);
+          ctx.fillStyle = '#1f2937';
+          ctx.font = '700 10px Barlow, Arial, sans-serif';
+          ctx.fillText(formatoCantidadGrafico(value), props.x, Math.max(chartArea.top + 10, props.y - 10));
+        });
+      });
+    }
 
     ctx.restore();
   }
@@ -150,6 +414,198 @@ var stockSegmentLabelsPlugin = {
 if (!chartData.labels || chartData.labels.length === 0) {
   canvas.classList.add('d-none');
   empty.classList.remove('d-none');
+} else if (isStockPorInsecticidaPorUnidad) {
+  canvas.parentElement.classList.add('d-none');
+  multiChartWrap.classList.remove('d-none');
+  multiChartWrap.innerHTML = '';
+
+  chartData.unitGroups.forEach(function(group) {
+    var panel = document.createElement('div');
+    panel.className = 'weekly-unit-chart-panel';
+
+    var title = document.createElement('div');
+    title.className = 'weekly-unit-chart-title';
+    title.textContent = 'Unidad: ' + (group.unidad || 'Sin unidad');
+
+    var labels = group.labels || [];
+    var datasets = group.datasets || [];
+    var totalsByLabel = labels.map(function(_, labelIndex) {
+      return datasets.reduce(function(sum, dataset) {
+        return sum + Number((dataset.data || [])[labelIndex] || 0);
+      }, 0);
+    });
+    var maxValue = totalsByLabel.reduce(function(max, total) {
+      return Math.max(max, total);
+    }, 0);
+    var scaleMax = maxValue ? maxValue * 1.12 : 1;
+
+    var chart = document.createElement('div');
+    chart.className = 'weekly-css-chart';
+
+    var axis = document.createElement('div');
+    axis.className = 'weekly-css-axis';
+    [1, .75, .5, .25, 0].forEach(function(ratio) {
+      var tick = document.createElement('span');
+      tick.textContent = formatoCantidadGrafico(scaleMax * ratio);
+      axis.appendChild(tick);
+    });
+
+    var plot = document.createElement('div');
+    plot.className = 'weekly-css-plot';
+    [0, 1, 2, 3, 4].forEach(function() {
+      var line = document.createElement('span');
+      line.className = 'weekly-css-gridline';
+      plot.appendChild(line);
+    });
+
+    labels.forEach(function(label, labelIndex) {
+      var category = document.createElement('div');
+      category.className = 'weekly-css-week';
+
+      var bars = document.createElement('div');
+      bars.className = 'weekly-css-bars';
+
+      var total = totalsByLabel[labelIndex] || 0;
+      var stack = document.createElement('div');
+      stack.className = 'stock-css-stack';
+      stack.style.height = Math.max(2, (total / scaleMax) * 100) + '%';
+
+      datasets.forEach(function(dataset) {
+        var value = Number((dataset.data || [])[labelIndex] || 0);
+        if (!value) return;
+
+        var segment = document.createElement('div');
+        segment.className = 'stock-css-segment';
+        segment.style.height = (value / total) * 100 + '%';
+        segment.style.backgroundColor = dataset.backgroundColor || '#1e88e5';
+        segment.title = dataset.label;
+
+        if ((value / total) >= .18) {
+          var segmentText = document.createElement('span');
+          segmentText.className = 'stock-css-segment-label';
+          segmentText.textContent = formatoCantidadGrafico(value);
+          segment.appendChild(segmentText);
+        }
+        stack.appendChild(segment);
+      });
+
+      var valueLabel = document.createElement('span');
+      valueLabel.className = 'weekly-css-bar-value stock-css-total-label';
+      valueLabel.textContent = total ? formatoCantidadGrafico(total) : '';
+      stack.appendChild(valueLabel);
+      bars.appendChild(stack);
+
+      var categoryLabel = document.createElement('div');
+      categoryLabel.className = 'weekly-css-week-label';
+      categoryLabel.textContent = label;
+      category.append(bars, categoryLabel);
+      plot.appendChild(category);
+    });
+
+    var legend = document.createElement('div');
+    legend.className = 'weekly-css-legend';
+    datasets.forEach(function(dataset) {
+      var item = document.createElement('div');
+      item.className = 'weekly-css-legend-item';
+      var swatch = document.createElement('span');
+      swatch.className = 'weekly-css-legend-swatch';
+      swatch.style.backgroundColor = dataset.backgroundColor || '#1e88e5';
+      var text = document.createElement('span');
+      text.textContent = dataset.label;
+      item.append(swatch, text);
+      legend.appendChild(item);
+    });
+
+    chart.append(axis, plot);
+    panel.append(title, chart, legend);
+    multiChartWrap.appendChild(panel);
+  });
+} else if (isMovimientosPorSemanaInsecticida && Array.isArray(chartData.unitGroups)) {
+  canvas.parentElement.classList.add('d-none');
+  multiChartWrap.classList.remove('d-none');
+  multiChartWrap.innerHTML = '';
+
+  chartData.unitGroups.forEach(function(group, groupIndex) {
+    var panel = document.createElement('div');
+    panel.className = 'weekly-unit-chart-panel';
+
+    var title = document.createElement('div');
+    title.className = 'weekly-unit-chart-title';
+    title.textContent = 'Unidad: ' + (group.unidad || 'Sin unidad');
+
+    var labels = group.labels || [];
+    var datasets = group.datasets || [];
+    var maxValue = datasets.reduce(function(max, dataset) {
+      return Math.max(max, ...(dataset.data || []).map(value => Number(value || 0)));
+    }, 0);
+    var scaleMax = maxValue ? maxValue * 1.12 : 1;
+
+    var chart = document.createElement('div');
+    chart.className = 'weekly-css-chart';
+
+    var axis = document.createElement('div');
+    axis.className = 'weekly-css-axis';
+    [1, .75, .5, .25, 0].forEach(function(ratio) {
+      var tick = document.createElement('span');
+      tick.textContent = formatoCantidadGrafico(scaleMax * ratio);
+      axis.appendChild(tick);
+    });
+
+    var plot = document.createElement('div');
+    plot.className = 'weekly-css-plot';
+    [0, 1, 2, 3, 4].forEach(function() {
+      var line = document.createElement('span');
+      line.className = 'weekly-css-gridline';
+      plot.appendChild(line);
+    });
+
+    labels.forEach(function(label, weekIndex) {
+      var week = document.createElement('div');
+      week.className = 'weekly-css-week';
+
+      var bars = document.createElement('div');
+      bars.className = 'weekly-css-bars';
+
+      datasets.forEach(function(dataset, datasetIndex) {
+        var value = Number(dataset.data[weekIndex] || 0);
+        var bar = document.createElement('div');
+        bar.className = 'weekly-css-bar';
+        bar.style.height = Math.max(2, (value / scaleMax) * 100) + '%';
+        bar.style.backgroundColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
+        bar.title = dataset.label + ': ' + formatoCantidadGrafico(value) + ' ' + (group.unidad || '');
+
+        var valueLabel = document.createElement('span');
+        valueLabel.className = 'weekly-css-bar-value';
+        valueLabel.textContent = value ? formatoCantidadGrafico(value) : '';
+        bar.appendChild(valueLabel);
+        bars.appendChild(bar);
+      });
+
+      var weekLabel = document.createElement('div');
+      weekLabel.className = 'weekly-css-week-label';
+      weekLabel.textContent = label;
+      week.append(bars, weekLabel);
+      plot.appendChild(week);
+    });
+
+    var legend = document.createElement('div');
+    legend.className = 'weekly-css-legend';
+    datasets.forEach(function(dataset, datasetIndex) {
+      var item = document.createElement('div');
+      item.className = 'weekly-css-legend-item';
+      var swatch = document.createElement('span');
+      swatch.className = 'weekly-css-legend-swatch';
+      swatch.style.backgroundColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
+      var text = document.createElement('span');
+      text.textContent = dataset.label;
+      item.append(swatch, text);
+      legend.appendChild(item);
+    });
+
+    chart.append(axis, plot);
+    panel.append(title, chart, legend);
+    multiChartWrap.appendChild(panel);
+  });
 } else {
   if (window.sicisReporteChart) window.sicisReporteChart.destroy();
   window.sicisReporteChart = new Chart(canvas, {
@@ -174,12 +630,49 @@ if (!chartData.labels || chartData.labels.length === 0) {
           padding: { bottom: 8 }
         },
         legend: {
+          display: !isMovimientosPorTipo,
           position: 'bottom',
+          align: 'center',
           labels: {
-            boxWidth: 14,
-            boxHeight: 14,
+            boxWidth: 10,
+            boxHeight: 10,
             padding: 12,
-            font: { size: isStockPorInsecticida ? 10 : 12 }
+            usePointStyle: true,
+            pointStyle: 'rectRounded',
+            font: { size: isStockPorInsecticida ? 10 : 12 },
+            generateLabels: function(chart) {
+              var labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+              if (isStockPorInsecticida) {
+                return labels.map(function(label) {
+                  var dataset = chart.data.datasets[label.datasetIndex] || {};
+                  var meta = dataset.meta || {};
+                  var value = Number((dataset.data || []).reduce(function(sum, item) {
+                    return sum + Number(item || 0);
+                  }, 0));
+                  label.text = truncateLabel(
+                    'Stock ' + formatoCantidadGrafico(value) + ' ' + (meta.unidad_medida || '') + ' | Vto. ' + (meta.vencimiento || '-') + ' | Estado: ' + (meta.estado_vencimiento || '-'),
+                    74
+                  );
+                  return label;
+                });
+              }
+
+              if (!isMovimientosPorTipo) {
+                return labels.map(function(label) {
+                  label.text = truncateLabel(label.text, isMovimientosPorSemanaInsecticida ? 36 : 28);
+                  return label;
+                });
+              }
+
+              var dataset = chart.data.datasets[0] || { data: [] };
+              var total = getDataTotal(dataset);
+              return labels.map(function(label) {
+                var value = Number(dataset.data[label.index] || 0);
+                var percent = total ? Math.round((value / total) * 100) : 0;
+                label.text = truncateLabel(label.text, 20) + ' - ' + formatoCantidadGrafico(value) + ' (' + percent + '%)';
+                return label;
+              });
+            }
           }
         },
         tooltip: {
@@ -188,13 +681,20 @@ if (!chartData.labels || chartData.labels.length === 0) {
               return items[0]?.label || '';
             },
             label: function(context) {
+              if (isMovimientosPorTipo) {
+                var value = Number(context.raw || 0);
+                var total = getDataTotal(context.dataset);
+                var percent = total ? Math.round((value / total) * 100) : 0;
+                return context.label + ': ' + formatoCantidadGrafico(value) + ' (' + percent + '%)';
+              }
+
               if (!isStockPorInsecticida || !context.dataset.meta) {
-                return context.dataset.label + ': ' + formatoCantidadGrafico(context.parsed.y || context.raw);
+                var unidad = context.dataset.meta?.unidad_medida || '';
+                return context.dataset.label + ': ' + formatoCantidadGrafico(context.parsed.y || context.raw) + (unidad ? ' ' + unidad : '');
               }
 
               var meta = context.dataset.meta;
               return [
-                'Lote: ' + meta.lote,
                 'Stock: ' + formatoCantidadGrafico(context.raw) + ' ' + (meta.unidad_medida || ''),
                 'Vencimiento: ' + meta.vencimiento,
                 'Estado: ' + meta.estado_vencimiento
@@ -203,14 +703,24 @@ if (!chartData.labels || chartData.labels.length === 0) {
           }
         }
       },
+      layout: {
+        padding: {
+          top: isMovimientosPorTipo ? 16 : (isStockPorInsecticida ? 34 : 18),
+          bottom: isMovimientosPorTipo ? 10 : 8,
+          left: isMovimientosPorTipo ? 104 : 8,
+          right: isMovimientosPorTipo ? 104 : 8
+        }
+      },
+      radius: isMovimientosPorTipo ? '56%' : undefined,
+      cutout: isMovimientosPorTipo ? '54%' : undefined,
       scales: '<%= tipo_grafico === 'movimientos_por_tipo' ? 'none' : 'linear' %>' === 'none'
         ? {}
         : {
             x: {
               stacked: isStockPorInsecticida,
               title: {
-                display: isStockPorInsecticida,
-                text: 'Insecticida',
+                display: isStockPorInsecticida || isMovimientosPorSemanaInsecticida,
+                text: isMovimientosPorSemanaInsecticida ? 'Semana epidemiologica' : 'Insecticida',
                 color: '#334155',
                 font: { size: 12, weight: '700' }
               }
@@ -219,8 +729,8 @@ if (!chartData.labels || chartData.labels.length === 0) {
               beginAtZero: true,
               stacked: isStockPorInsecticida,
               title: {
-                display: isStockPorInsecticida,
-                text: 'Stock total',
+                display: isStockPorInsecticida || isMovimientosPorSemanaInsecticida,
+                text: isMovimientosPorSemanaInsecticida ? 'Cantidad movida (ver unidad en cada serie)' : 'Stock total',
                 color: '#334155',
                 font: { size: 12, weight: '700' }
               },
@@ -228,7 +738,211 @@ if (!chartData.labels || chartData.labels.length === 0) {
             }
           }
     },
-    plugins: [stockSegmentLabelsPlugin]
+    plugins: [sicisDataLabelsPlugin]
   });
+  renderMovimientosLegend(chartData);
 }
 </script>
+
+<style>
+.chart-custom-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .5rem .75rem;
+  margin-top: .85rem;
+  padding-top: .85rem;
+  border-top: 1px solid #e2e8f0;
+}
+.chart-custom-legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+  gap: .45rem;
+  color: #1f2937;
+  font-size: .82rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.chart-custom-legend-swatch {
+  flex: 0 0 auto;
+  width: .7rem;
+  height: .7rem;
+  border-radius: 3px;
+}
+.weekly-unit-charts {
+  display: grid;
+  gap: 1rem;
+}
+.weekly-unit-chart-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: .85rem;
+  background: #fff;
+}
+.weekly-unit-chart-title {
+  color: #1f2937;
+  font-size: .92rem;
+  font-weight: 700;
+  margin-bottom: .65rem;
+}
+.weekly-css-chart {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  min-height: 340px;
+}
+.weekly-css-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 .65rem 2rem 0;
+  color: #64748b;
+  font-size: .72rem;
+  font-weight: 600;
+}
+.weekly-css-plot {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(120px, 1fr);
+  align-items: stretch;
+  gap: 1rem;
+  min-height: 300px;
+  padding: 0 .5rem;
+  border-left: 1px solid #cbd5e1;
+  border-bottom: 0;
+  overflow-x: auto;
+}
+.weekly-css-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e2e8f0;
+}
+.weekly-css-gridline:nth-child(1) { top: 0; }
+.weekly-css-gridline:nth-child(2) { top: calc(25% - .5rem); }
+.weekly-css-gridline:nth-child(3) { top: calc(50% - 1rem); }
+.weekly-css-gridline:nth-child(4) { top: calc(75% - 1.5rem); }
+.weekly-css-gridline:nth-child(5) {
+  top: auto;
+  bottom: 2rem;
+  background: #94a3b8;
+  z-index: 0;
+}
+.weekly-css-week {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 2rem;
+  height: 100%;
+  min-width: 120px;
+  padding-left: .75rem;
+}
+.weekly-css-week::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 2rem;
+  left: -.5rem;
+  width: 1px;
+  background: #e2e8f0;
+}
+.weekly-css-week:first-of-type {
+  padding-left: 0;
+}
+.weekly-css-week:first-of-type::before {
+  display: none;
+}
+.weekly-css-bars {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: .35rem;
+  height: 100%;
+}
+.weekly-css-bar {
+  position: relative;
+  width: 34px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+}
+.stock-css-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  width: 44px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  overflow: visible;
+}
+.stock-css-segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2px;
+}
+.stock-css-segment:first-child {
+  border-radius: 0 0 4px 4px;
+}
+.stock-css-segment:last-child {
+  border-radius: 4px 4px 0 0;
+}
+.stock-css-segment-label {
+  color: #fff;
+  font-size: .64rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 .15rem;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(15, 23, 42, .35);
+  white-space: nowrap;
+}
+.stock-css-total-label {
+  bottom: calc(100% + 5px);
+}
+.weekly-css-bar-value {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  color: #334155;
+  font-size: .68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.weekly-css-week-label {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 2rem;
+  padding-top: 0;
+  text-align: center;
+  color: #64748b;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.weekly-css-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .5rem .9rem;
+  margin-top: .85rem;
+}
+.weekly-css-legend-item {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 600;
+}
+.weekly-css-legend-swatch {
+  width: .7rem;
+  height: .7rem;
+  border-radius: 3px;
+}
+</style>

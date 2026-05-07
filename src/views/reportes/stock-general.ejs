@@ -1,3 +1,4 @@
+<% if (typeof print === 'undefined' || !print) { %>
 <div class="page-header d-print-none">
   <div>
     <h1 class="page-title"><i class="bi bi-grid-3x3-gap me-2"></i>Reporte de Stock General</h1>
@@ -8,15 +9,30 @@
       </ol>
     </nav>
   </div>
-  <button type="button" class="btn btn-outline-secondary" data-sicis-print>
-    <i class="bi bi-printer me-1"></i>Imprimir
-  </button>
+  <div class="d-flex gap-2 flex-wrap">
+    <% if (userRol === 'admin' || userRol === 'gerente') { %>
+    <div class="dropdown">
+      <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-download me-1"></i>Exportar
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?formato=csv">CSV</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?formato=xlsx">XLSX</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?formato=dbf">DBF</a></li>
+      </ul>
+    </div>
+    <% } %>
+    <button type="button" class="btn btn-outline-secondary" data-sicis-print>
+      <i class="bi bi-printer me-1"></i>Imprimir
+    </button>
+  </div>
 </div>
 
 <div class="alert alert-info d-print-none">
   <i class="bi bi-info-circle me-2"></i>
   Matriz de stock por deposito, insecticida y lote. En impresion se ajusta en formato A4 horizontal.
 </div>
+<% } %>
 
 <div id="zonaImprimible" class="stock-general-report">
   <div class="reporte-membrete d-none d-print-block mb-2">

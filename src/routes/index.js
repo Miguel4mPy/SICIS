@@ -116,6 +116,7 @@ router.get('/reportes/movimientos', requireAuth, reportesCtrl.movimientos);
 router.get('/reportes/stock', requireAuth, reportesCtrl.stock);
 router.get('/reportes/stock-general', requireAuth, reportesCtrl.stockGeneral);
 router.get('/reportes/grafico', requireAuth, requireRole('admin', 'gerente'), reportesCtrl.grafico);
+router.get('/reportes/:reporte/exportar', requireAuth, requireRole('admin', 'gerente'), reportesCtrl.exportar);
 
 // Usuarios (solo admin)
 router.get('/usuarios', requireAuth, requireRole('admin'), usuariosCtrl.index);
