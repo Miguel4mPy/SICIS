@@ -431,13 +431,13 @@ exports.loteNew = async (req, res) => {
 };
 
 exports.loteCreate = async (req, res) => {
-  const { codigo_lote, insecticida_id, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, cantidad_inicial, observaciones } = req.body;
+  const { codigo_lote, insecticida_id, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const r = await client.query(
-      'INSERT INTO lotes (codigo_lote, insecticida_id, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, cantidad_inicial, observaciones) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-      [codigo_lote, insecticida_id, unidad_medida, presentacion_codigo || null, fecha_fabricacion || null, fecha_vencimiento, parseFloat(cantidad_inicial), observaciones]
+      'INSERT INTO lotes (codigo_lote, insecticida_id, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+      [codigo_lote, insecticida_id, unidad_medida, presentacion_codigo || null, fecha_fabricacion || null, fecha_vencimiento, observaciones]
     );
     await client.query('COMMIT');
     await auditLog(req, 'CREAR_LOTE', 'lotes', r.rows[0].id, null, req.body);
@@ -464,7 +464,7 @@ exports.loteEdit = async (req, res) => {
 
 exports.loteUpdate = async (req, res) => {
   const { id } = req.params;
-  const { codigo_lote, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones, activo, cantidad_inicial } = req.body;
+  const { codigo_lote, unidad_medida, presentacion_codigo, fecha_fabricacion, fecha_vencimiento, observaciones, activo } = req.body;
   try {
     const params = [
       codigo_lote,
@@ -475,16 +475,6 @@ exports.loteUpdate = async (req, res) => {
       observaciones,
       activo === 'on'
     ];
-    let cantidadSql = '';
-
-    if (req.session.userRol === 'admin') {
-      const cantidad = Number(cantidad_inicial);
-      if (Number.isNaN(cantidad) || cantidad < 0) {
-        throw new Error('La cantidad inicial debe ser mayor o igual a cero.');
-      }
-      params.push(cantidad);
-      cantidadSql = `, cantidad_inicial=$${params.length}`;
-    }
 
     params.push(id);
     await pool.query(`
@@ -496,7 +486,6 @@ exports.loteUpdate = async (req, res) => {
           fecha_vencimiento=$5,
           observaciones=$6,
           activo=$7
-          ${cantidadSql}
       WHERE id=$${params.length}
     `, params);
     req.flash('success', 'Lote actualizado.');

@@ -28,7 +28,7 @@
             <h3><%= m.insecticida_nombre %></h3>
 
             <div class="movement-amount">
-              <%= parseFloat(m.cantidad || 0).toFixed(3) %>
+              <%= formatearNumero(m.cantidad, 3) %>
               <small><%= m.unidad_medida %></small>
             </div>
 

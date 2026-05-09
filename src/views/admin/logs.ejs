@@ -2,6 +2,8 @@
   const formatDateTime = (value) => value ? new Date(value).toLocaleString('es-PY') : '-';
   const fmtNum = (value) => Number(value || 0).toLocaleString('es-PY');
   const fmtMb = (value) => `${Number(value || 0).toFixed(1)} MB`;
+  const fmtGb = (value) => `${(Number(value || 0) / 1024).toFixed(2)} GB`;
+  const fmtPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
   const fmtDuration = (seconds) => {
     const total = Math.floor(Number(seconds || 0));
     const h = Math.floor(total / 3600);
@@ -16,6 +18,7 @@
       return String(value);
     }
   };
+  const dbSizeMb = Number(diagnostico.dbStats.db_size_bytes || 0) / 1024 / 1024;
 %>
 
 <div class="dashboard-page">
@@ -23,7 +26,7 @@
     <div class="dashboard-section-header">
       <div>
         <span class="dashboard-eyebrow">Administracion</span>
-        <h2>Logs y diagnostico</h2>
+        <h2>Logs y monitoreo del servidor</h2>
       </div>
     </div>
 
@@ -58,6 +61,102 @@
           <div class="summary-value"><%= fmtNum(diagnostico.sesionesActivas) %></div>
           <div class="summary-label">Sesiones activas</div>
           <div class="summary-meta"><%= diagnostico.entorno %></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-section">
+    <div class="dashboard-section-header">
+      <div>
+        <span class="dashboard-eyebrow">Monitoreo</span>
+        <h2>Servidor y sistema</h2>
+        <p class="dashboard-section-note">La memoria de SICIS corresponde al proceso Node. La RAM del equipo incluye Windows y todas las aplicaciones abiertas.</p>
+      </div>
+    </div>
+    <div class="server-monitor-grid">
+      <article class="server-monitor-card">
+        <div class="server-monitor-topline">
+          <span><i class="bi bi-cpu"></i>CPU</span>
+          <strong><%= diagnostico.cpuSistemaPorcentaje !== null ? fmtPercent(diagnostico.cpuSistemaPorcentaje) : 'N/D' %></strong>
+        </div>
+        <div class="metric-pair">
+          <div class="metric-row">
+            <div class="metric-row-head"><span>SICIS</span><strong><%= fmtPercent(diagnostico.cpuProcesoPorcentaje) %></strong></div>
+            <div class="metric-bar"><span style="width: <%= Math.min(100, diagnostico.cpuProcesoPorcentaje || 0) %>%"></span></div>
+          </div>
+          <div class="metric-row">
+            <div class="metric-row-head"><span>Sistema operativo</span><strong><%= diagnostico.cpuSistemaPorcentaje !== null ? fmtPercent(diagnostico.cpuSistemaPorcentaje) : 'N/D' %></strong></div>
+            <% if (diagnostico.cpuSistemaPorcentaje !== null) { %>
+              <div class="metric-bar metric-bar-os"><span style="width: <%= Math.min(100, diagnostico.cpuSistemaPorcentaje || 0) %>%"></span></div>
+            <% } else { %>
+              <div class="metric-bar metric-bar-muted"><span style="width: 0%"></span></div>
+            <% } %>
+          </div>
+        </div>
+        <div class="server-monitor-meta">
+          <span>PID <%= diagnostico.pid %></span>
+          <span><%= diagnostico.cpuCount %> nucleos</span>
+        </div>
+      </article>
+
+      <article class="server-monitor-card">
+        <div class="server-monitor-topline">
+          <span><i class="bi bi-memory"></i>Memoria</span>
+          <strong><%= fmtPercent(diagnostico.memoriaSistemaPorcentaje) %></strong>
+        </div>
+        <div class="metric-pair">
+          <div class="metric-row">
+            <div class="metric-row-head"><span>SICIS</span><strong><%= fmtMb(diagnostico.memoriaRssMb) %></strong></div>
+            <div class="metric-bar"><span style="width: <%= Math.min(100, (diagnostico.memoriaRssMb / Math.max(diagnostico.memoriaSistemaTotalMb, 1)) * 100) %>%"></span></div>
+          </div>
+          <div class="metric-row">
+            <div class="metric-row-head"><span>Equipo</span><strong><%= fmtGb(diagnostico.memoriaSistemaUsadaMb) %></strong></div>
+            <div class="metric-bar metric-bar-warning"><span style="width: <%= Math.min(100, diagnostico.memoriaSistemaPorcentaje || 0) %>%"></span></div>
+          </div>
+        </div>
+        <div class="server-monitor-meta">
+          <span>Heap usado <%= fmtMb(diagnostico.memoriaHeapMb) %> de <%= fmtMb(diagnostico.memoriaHeapTotalMb) %></span>
+          <span>Libre <%= fmtGb(diagnostico.memoriaSistemaLibreMb) %></span>
+        </div>
+      </article>
+
+      <article class="server-monitor-card">
+        <div class="server-monitor-topline">
+          <span><i class="bi bi-database-check"></i>PostgreSQL</span>
+          <strong><%= fmtMb(dbSizeMb) %></strong>
+        </div>
+        <div class="server-monitor-meta server-monitor-meta-stack">
+          <span>Conexiones activas <%= fmtNum(diagnostico.dbStats.conexiones_activas) %></span>
+          <span>Idle <%= fmtNum(diagnostico.dbStats.conexiones_idle) %> / Total <%= fmtNum(diagnostico.dbStats.conexiones_total) %></span>
+          <span><%= diagnostico.db.database %></span>
+        </div>
+      </article>
+    </div>
+
+    <div class="dashboard-card-grid stock-card-grid server-system-grid">
+      <div class="dashboard-info-card">
+        <div class="info-card-topline"><code>Runtime</code><span class="stock-unit">PID <%= diagnostico.pid %></span></div>
+        <h3>Node <%= diagnostico.node %></h3>
+        <div class="info-card-meta">
+          <span><i class="bi bi-pc-display"></i><%= diagnostico.host %></span>
+          <span><i class="bi bi-cpu"></i><%= diagnostico.cpuCount %> CPU</span>
+          <span><i class="bi bi-clock-history"></i>Proceso <%= fmtDuration(diagnostico.uptimeProceso) %></span>
+        </div>
+      </div>
+      <div class="dashboard-info-card">
+        <div class="info-card-topline"><code>RAM equipo</code><span class="stock-unit"><%= fmtPercent(diagnostico.memoriaSistemaPorcentaje) %></span></div>
+        <h3><%= fmtGb(diagnostico.memoriaSistemaUsadaMb) %></h3>
+        <div class="info-card-meta">
+          <span><i class="bi bi-memory"></i>Total usado por el equipo</span>
+          <span><i class="bi bi-hdd-network"></i>Sistema activo <%= fmtDuration(diagnostico.uptimeSistema) %></span>
+        </div>
+      </div>
+      <div class="dashboard-info-card">
+        <div class="info-card-topline"><code>Base de datos</code><span class="stock-unit"><%= diagnostico.db.database %></span></div>
+        <h3>PostgreSQL</h3>
+        <div class="info-card-meta">
+          <span><i class="bi bi-database"></i><%= diagnostico.db.version.split(',')[0] %></span>
         </div>
       </div>
     </div>
@@ -141,41 +240,6 @@
             <a href="/logs" class="btn btn-outline-secondary btn-sm">Limpiar</a>
           </div>
         </form>
-      </div>
-    </div>
-  </section>
-
-  <section class="dashboard-section">
-    <div class="dashboard-section-header">
-      <div>
-        <span class="dashboard-eyebrow">Servidor y sistema</span>
-        <h2>Diagnostico rapido</h2>
-      </div>
-    </div>
-    <div class="dashboard-card-grid stock-card-grid">
-      <div class="dashboard-info-card">
-        <div class="info-card-topline"><code>Runtime</code><span class="stock-unit"><%= diagnostico.entorno %></span></div>
-        <h3>Node <%= diagnostico.node %></h3>
-        <div class="info-card-meta">
-          <span><i class="bi bi-pc-display"></i><%= diagnostico.host %></span>
-          <span><i class="bi bi-cpu"></i><%= diagnostico.cpuCount %> CPU</span>
-          <span><i class="bi bi-clock-history"></i>Proceso <%= fmtDuration(diagnostico.uptimeProceso) %></span>
-        </div>
-      </div>
-      <div class="dashboard-info-card">
-        <div class="info-card-topline"><code>Memoria</code><span class="stock-unit">RSS</span></div>
-        <h3><%= fmtMb(diagnostico.memoriaRssMb) %></h3>
-        <div class="info-card-meta">
-          <span><i class="bi bi-memory"></i>Heap usado <%= fmtMb(diagnostico.memoriaHeapMb) %></span>
-          <span><i class="bi bi-hdd-network"></i>Sistema activo <%= fmtDuration(diagnostico.uptimeSistema) %></span>
-        </div>
-      </div>
-      <div class="dashboard-info-card">
-        <div class="info-card-topline"><code>Base de datos</code><span class="stock-unit"><%= diagnostico.db.database %></span></div>
-        <h3>PostgreSQL</h3>
-        <div class="info-card-meta">
-          <span><i class="bi bi-database"></i><%= diagnostico.db.version.split(',')[0] %></span>
-        </div>
       </div>
     </div>
   </section>

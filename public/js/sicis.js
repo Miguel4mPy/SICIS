@@ -4,6 +4,13 @@
 
 'use strict';
 
+function formatNumberPy(value, fractionDigits = 3) {
+  return Number(value || 0).toLocaleString('es-PY', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  });
+}
+
 function setSidebarActive(path = window.location.pathname) {
   document.querySelectorAll('.sidebar-nav-item a, .sidebar-nav .nav-item, .sidebar-footer .nav-item').forEach(link => {
     const href = link.getAttribute('href');
@@ -94,7 +101,7 @@ function initMovimientoStock(root = document) {
         data.lotes.forEach(lote => {
           const opt = document.createElement('option');
           opt.value = lote.id;
-          opt.textContent = `${lote.codigo_lote} - Stock: ${parseFloat(lote.stock_actual).toFixed(2)} ${lote.unidad_medida} | Vence: ${new Date(lote.fecha_vencimiento).toLocaleDateString('es-PY')}`;
+          opt.textContent = `${lote.codigo_lote} - Stock: ${formatNumberPy(lote.stock_actual, 2)} ${lote.unidad_medida} | Vence: ${new Date(lote.fecha_vencimiento).toLocaleDateString('es-PY')}`;
           opt.dataset.stock = lote.stock_actual;
           lotSelect.appendChild(opt);
         });
@@ -117,7 +124,7 @@ function initMovimientoStock(root = document) {
     if (cantInput && maxStock > 0) {
       cantInput.max = maxStock;
       const hint = root.querySelector('#stockHint');
-      if (hint) hint.textContent = `Disponible: ${maxStock.toFixed(2)}`;
+      if (hint) hint.textContent = `Disponible: ${formatNumberPy(maxStock, 2)}`;
     }
   });
 
@@ -130,6 +137,11 @@ function initMovimientoForm(root = document) {
   const form = root.querySelector('#movForm');
   if (!form || form.dataset.sicisMovimientoFormBound) return;
   form.dataset.sicisMovimientoFormBound = 'true';
+
+  if (form.dataset.opcionesUrl) {
+    initComboSelects(form);
+    return;
+  }
 
   const tipoSelect = form.querySelector('#tipoMovimientoSelect');
   const categoriaSelect = form.querySelector('#categoriaSelect');
@@ -195,6 +207,128 @@ function initMovimientoForm(root = document) {
   updateComboSelect(destinoSelect);
 }
 
+function initStockReportFilters(root = document) {
+  const form = root.querySelector('[data-stock-report-filters]');
+  if (!form || form.dataset.sicisStockFiltersBound) return;
+  form.dataset.sicisStockFiltersBound = 'true';
+
+  const tipoSelect = form.querySelector('[data-stock-tipo-deposito]');
+  const depositoSelect = form.querySelector('[data-stock-deposito]');
+  const insecticidaSelect = form.querySelector('[data-stock-insecticida]');
+  if (!tipoSelect || !depositoSelect || !insecticidaSelect) return;
+
+  initComboSelects(form);
+
+  let depositoRequest = 0;
+  let insecticidaRequest = 0;
+
+  function optionLabelDeposito(dep) {
+    return `[N${dep.nivel}] ${dep.codigo} - ${dep.nombre}`;
+  }
+
+  function optionLabelInsecticida(ins) {
+    return `${ins.codigo ? `${ins.codigo} - ` : ''}${ins.nombre}`;
+  }
+
+  function replaceOptions(select, placeholder, rows, selectedValue, labelFn) {
+    select.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = placeholder;
+    select.appendChild(first);
+
+    rows.forEach(row => {
+      const option = document.createElement('option');
+      option.value = String(row.id);
+      option.textContent = labelFn(row);
+      select.appendChild(option);
+    });
+
+    if (selectedValue && Array.from(select.options).some(opt => opt.value === String(selectedValue))) {
+      select.value = String(selectedValue);
+    } else {
+      select.value = '';
+    }
+
+    updateComboSelect(select);
+  }
+
+  async function loadDepositos({ query = '', preserveValue = false } = {}) {
+    const requestId = ++depositoRequest;
+    const tipo = tipoSelect.value;
+    const currentValue = preserveValue ? depositoSelect.value : '';
+    insecticidaRequest++;
+
+    if (!tipo) {
+      depositoSelect.disabled = true;
+      insecticidaSelect.disabled = true;
+      replaceOptions(depositoSelect, 'Seleccione tipo primero...', [], '', optionLabelDeposito);
+      replaceOptions(insecticidaSelect, 'Seleccione deposito primero...', [], '', optionLabelInsecticida);
+      return;
+    }
+
+    depositoSelect.disabled = false;
+    replaceOptions(depositoSelect, 'Cargando depositos...', [], '', optionLabelDeposito);
+    insecticidaSelect.disabled = true;
+    replaceOptions(insecticidaSelect, 'Seleccione deposito primero...', [], '', optionLabelInsecticida);
+
+    const params = new URLSearchParams({ tipo_deposito: tipo });
+    if (query.trim()) params.set('q', query.trim());
+
+    try {
+      const response = await fetch(`/api/reportes/stock/depositos?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error('No se pudieron cargar depositos');
+      const data = await response.json();
+      if (requestId !== depositoRequest) return;
+      replaceOptions(depositoSelect, 'Todos', data.depositos || [], currentValue, optionLabelDeposito);
+    } catch (err) {
+      console.error('Error cargando depositos del reporte de stock:', err);
+      if (requestId === depositoRequest) replaceOptions(depositoSelect, 'Error al cargar depositos', [], '', optionLabelDeposito);
+    }
+  }
+
+  async function loadInsecticidas({ query = '', preserveValue = false } = {}) {
+    const requestId = ++insecticidaRequest;
+    const depositoId = depositoSelect.value;
+    const currentValue = preserveValue ? insecticidaSelect.value : '';
+
+    if (!depositoId) {
+      insecticidaSelect.disabled = true;
+      replaceOptions(insecticidaSelect, 'Seleccione deposito primero...', [], '', optionLabelInsecticida);
+      return;
+    }
+
+    insecticidaSelect.disabled = false;
+    replaceOptions(insecticidaSelect, 'Cargando insecticidas...', [], '', optionLabelInsecticida);
+
+    const params = new URLSearchParams({ deposito_id: depositoId });
+    if (query.trim()) params.set('q', query.trim());
+
+    try {
+      const response = await fetch(`/api/reportes/stock/insecticidas?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error('No se pudieron cargar insecticidas');
+      const data = await response.json();
+      if (requestId !== insecticidaRequest) return;
+      replaceOptions(insecticidaSelect, 'Todos', data.insecticidas || [], currentValue, optionLabelInsecticida);
+    } catch (err) {
+      console.error('Error cargando insecticidas del reporte de stock:', err);
+      if (requestId === insecticidaRequest) replaceOptions(insecticidaSelect, 'Error al cargar insecticidas', [], '', optionLabelInsecticida);
+    }
+  }
+
+  tipoSelect.addEventListener('change', () => loadDepositos());
+  depositoSelect.addEventListener('change', () => loadInsecticidas());
+  depositoSelect.addEventListener('sicis:combo-search', event => loadDepositos({ query: event.detail?.query || '', preserveValue: true }));
+  insecticidaSelect.addEventListener('sicis:combo-search', event => loadInsecticidas({ query: event.detail?.query || '', preserveValue: true }));
+
+  if (tipoSelect.value) loadDepositos({ preserveValue: true });
+  if (depositoSelect.value) loadInsecticidas({ preserveValue: true });
+}
+
 function initComboSelects(root = document) {
   if (!document.body.dataset.sicisComboCloseBound) {
     document.body.dataset.sicisComboCloseBound = 'true';
@@ -222,21 +356,38 @@ function initComboSelects(root = document) {
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-expanded', 'false');
 
+    const clearButton = document.createElement('button');
+    clearButton.type = 'button';
+    clearButton.className = 'combo-select-clear';
+    clearButton.setAttribute('aria-label', 'Limpiar campo');
+    clearButton.setAttribute('title', 'Limpiar');
+    clearButton.hidden = true;
+    clearButton.innerHTML = '<i class="bi bi-x-lg"></i>';
+
     const menu = document.createElement('div');
     menu.className = 'combo-select-menu';
 
     select.before(wrapper);
-    wrapper.append(input, select, menu);
+    wrapper.append(input, clearButton, select, menu);
     select.classList.add('combo-native-select');
 
-    select._sicisCombo = { wrapper, input, menu };
+    select._sicisCombo = { wrapper, input, clearButton, menu };
 
     const observer = new MutationObserver(() => updateComboSelect(select));
     observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
 
     input.addEventListener('focus', () => openCombo(select));
     input.addEventListener('click', () => openCombo(select));
-    input.addEventListener('input', () => renderComboOptions(select, input.value));
+    input.addEventListener('input', () => {
+      renderComboOptions(select, input.value);
+      updateComboClearButton(select);
+      if (select.dataset.remoteSearch === 'true') {
+        select.dispatchEvent(new CustomEvent('sicis:combo-search', {
+          bubbles: true,
+          detail: { select, query: input.value }
+        }));
+      }
+    });
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeCombo(select);
       if (event.key === 'ArrowDown') {
@@ -244,6 +395,20 @@ function initComboSelects(root = document) {
         openCombo(select);
         menu.querySelector('.combo-select-option:not(.disabled)')?.focus();
       }
+    });
+    clearButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      select.value = '';
+      input.value = '';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      if (select.dataset.remoteSearch === 'true') {
+        select.dispatchEvent(new CustomEvent('sicis:combo-search', {
+          bubbles: true,
+          detail: { select, query: '' }
+        }));
+      }
+      openCombo(select);
+      input.focus();
     });
 
     select.addEventListener('change', () => updateComboSelect(select));
@@ -314,10 +479,17 @@ function updateComboSelect(select) {
   combo.input.value = selected && selected.value ? selected.textContent : '';
   combo.input.disabled = select.disabled;
   combo.input.placeholder = select.dataset.sicisComboPlaceholder || select.options[0]?.textContent || 'Seleccionar...';
+  updateComboClearButton(select);
   renderComboOptions(select);
 }
 
 window.sicisUpdateComboSelect = updateComboSelect;
+
+function updateComboClearButton(select) {
+  const combo = select?._sicisCombo;
+  if (!combo?.clearButton) return;
+  combo.clearButton.hidden = select.disabled || !(select.value || combo.input.value);
+}
 
 function setComboDisabled(select, disabled, placeholder = 'Escriba para filtrar...') {
   const combo = select?._sicisCombo;
@@ -406,6 +578,7 @@ function initSicisContent(root = document) {
   initOtpInputs(root);
   initMovimientoStock(root);
   initMovimientoForm(root);
+  initStockReportFilters(root);
   setSidebarActive();
 }
 

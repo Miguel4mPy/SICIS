@@ -33,33 +33,33 @@
     <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h6>
   </div>
   <div class="card-body">
-    <form method="GET" action="/reportes/stock">
+    <form method="GET" action="/reportes/stock" data-stock-report-filters>
       <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label small fw-semibold">Deposito</label>
-          <select class="form-select form-select-sm" name="deposito_id">
-            <option value="">Todos</option>
-            <% depositos.forEach(d => { %>
-            <option value="<%= d.id %>" <%= filtros.deposito_id == d.id ? 'selected' : '' %>>[N<%= d.nivel %>] <%= d.codigo %> - <%= d.nombre %></option>
-            <% }) %>
-          </select>
-        </div>
         <div class="col-md-3">
           <label class="form-label small fw-semibold">Tipo de deposito</label>
-          <select class="form-select form-select-sm" name="tipo_deposito">
-            <option value="">Todos</option>
+          <select class="form-select form-select-sm" name="tipo_deposito" data-stock-tipo-deposito>
+            <option value="">Seleccione tipo...</option>
             <% ['oficina_central','zona','sector'].forEach(t => { %>
             <option value="<%= t %>" <%= filtros.tipo_deposito === t ? 'selected' : '' %>><%= tipoDepositoLabel(t) %></option>
             <% }) %>
           </select>
         </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Deposito</label>
+          <select class="form-select form-select-sm" name="deposito_id" data-stock-deposito data-remote-search="true" <%= filtros.tipo_deposito ? '' : 'disabled' %>>
+            <option value=""><%= filtros.tipo_deposito ? 'Todos' : 'Seleccione tipo primero...' %></option>
+            <% if (selectedOptions && selectedOptions.deposito) { %>
+            <option value="<%= selectedOptions.deposito.id %>" selected>[N<%= selectedOptions.deposito.nivel %>] <%= selectedOptions.deposito.codigo %> - <%= selectedOptions.deposito.nombre %></option>
+            <% } %>
+          </select>
+        </div>
         <div class="col-md-3">
           <label class="form-label small fw-semibold">Insecticida</label>
-          <select class="form-select form-select-sm" name="insecticida_id">
-            <option value="">Todos</option>
-            <% insecticidas.forEach(i => { %>
-            <option value="<%= i.id %>" <%= filtros.insecticida_id == i.id ? 'selected' : '' %>><%= i.nombre %></option>
-            <% }) %>
+          <select class="form-select form-select-sm" name="insecticida_id" data-stock-insecticida data-remote-search="true" <%= filtros.deposito_id ? '' : 'disabled' %>>
+            <option value=""><%= filtros.deposito_id ? 'Todos' : 'Seleccione deposito primero...' %></option>
+            <% if (selectedOptions && selectedOptions.insecticida) { %>
+            <option value="<%= selectedOptions.insecticida.id %>" selected><%= selectedOptions.insecticida.codigo %> - <%= selectedOptions.insecticida.nombre %></option>
+            <% } %>
           </select>
         </div>
         <div class="col-md-2 d-flex align-items-end">
@@ -88,7 +88,7 @@
   <div class="col-sm-6 col-md-3">
     <div class="stat-card" style="--card-color: var(--sicis-primary)">
       <div class="stat-icon"><i class="bi bi-droplet"></i></div>
-      <div class="stat-value"><%= stock.reduce((sum, s) => sum + parseFloat(s.cantidad || 0), 0).toFixed(0) %></div>
+      <div class="stat-value"><%= formatearNumero(stock.reduce((sum, s) => sum + parseFloat(s.cantidad || 0), 0), 0) %></div>
       <div class="stat-label">Cantidad total</div>
     </div>
   </div>
@@ -144,7 +144,7 @@
           <td><%= s.insecticida_nombre %></td>
           <td><code><%= s.codigo_lote %></code></td>
           <td><%= formatearFecha(s.fecha_vencimiento) %></td>
-          <td class="text-end fw-bold"><%= formatearCantidad(s.cantidad, s.unidad_medida) %></td>
+          <td class="text-end fw-bold"><%= formatearCantidad(s.cantidad, s.unidad_medida, 3) %></td>
           <td><%= formatearFecha(s.updated_at) %></td>
         </tr>
         <% }) %>

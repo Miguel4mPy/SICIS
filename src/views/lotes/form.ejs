@@ -1,5 +1,4 @@
 <% const esEdicion = Boolean(lote && lote.id); %>
-<% const puedeEditarCantidadInicial = !esEdicion || userRol === 'admin'; %>
 
 <div class="page-header">
   <div>
@@ -24,6 +23,10 @@
         <h5 class="mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Datos del Lote</h5>
       </div>
       <div class="card-body p-4">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          El stock del lote se carga desde <strong>Movimientos</strong> con categoria <strong>Entrada</strong>.
+        </div>
         <form method="POST" action="<%= esEdicion ? `/lotes/${lote.id}` : '/lotes' %>">
           <div class="mb-4">
             <label for="insecticida_id" class="form-label fw-semibold">Insecticida <span class="text-danger">*</span></label>
@@ -79,17 +82,6 @@
               <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento"
                 value="<%= lote.fecha_vencimiento ? new Date(lote.fecha_vencimiento).toISOString().split('T')[0] : '' %>" required>
             </div>
-          </div>
-
-          <div class="mb-4">
-            <label for="cantidad_inicial" class="form-label fw-semibold">Cantidad Inicial <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" id="cantidad_inicial" name="cantidad_inicial"
-              value="<%= lote.cantidad_inicial || '' %>" min="0" step="0.001" placeholder="0.000" <%= puedeEditarCantidadInicial ? 'required' : 'readonly' %>>
-            <% if (esEdicion && userRol === 'admin') { %>
-            <div class="form-text text-info"><i class="bi bi-unlock-fill me-1"></i>Editable solo para usuarios Admin.</div>
-            <% } else if (esEdicion) { %>
-            <div class="form-text text-warning"><i class="bi bi-lock-fill me-1"></i>No editable. Solo el usuario Admin puede modificar esta cantidad.</div>
-            <% } %>
           </div>
 
           <div class="mb-4">

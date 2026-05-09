@@ -1,6 +1,12 @@
 const pool = require('../../config/database');
 const { auditLog } = require('../middleware/auth');
-const { generarNumeroMovimiento, calcularSemanaEpidemiologica, tipoMovimientoLabel } = require('../utils/helpers');
+const {
+  generarNumeroMovimiento,
+  calcularSemanaEpidemiologica,
+  tipoMovimientoLabel,
+  formatearNumero,
+  parseCantidad
+} = require('../utils/helpers');
 
 async function getDepositosPermitidos(userId, rol) {
   if (rol === 'admin' || rol === 'gerente') {
@@ -111,6 +117,13 @@ const TIPOS_MOVIMIENTO_BASE = [
   { value: 'larvicida', label: 'Larvicida' }
 ];
 
+const CATEGORIAS_TIPO_INTERNO = ['entrada', 'transferencia', 'ajuste'];
+const TIPOS_SALIDA_PERMITIDOS = ['focal', 'espacial', 'residual', 'larvicida'];
+
+function isAdminOrGerente(rol) {
+  return rol === 'admin' || rol === 'gerente';
+}
+
 async function getTiposMovimiento(includeInactive = false) {
   try {
     const where = includeInactive ? '' : 'WHERE activo = true';
@@ -145,6 +158,168 @@ function getTiposMovimientoPermitidos(rol, tiposMovimiento) {
   }
 
   return tiposMovimiento;
+}
+
+function getTiposMovimientoPorCategoria(categoria, tiposMovimiento) {
+  if (CATEGORIAS_TIPO_INTERNO.includes(categoria)) {
+    return tiposMovimiento.filter(t => t.value === 'interno');
+  }
+
+  if (categoria === 'salida') {
+    return tiposMovimiento.filter(t => TIPOS_SALIDA_PERMITIDOS.includes(t.value));
+  }
+
+  return tiposMovimiento;
+}
+
+function getReglasFormularioMovimiento({ rol, categoria, tipoMovimiento }) {
+  const tipoBloqueado = CATEGORIAS_TIPO_INTERNO.includes(categoria);
+
+  return {
+    requiereOrigen: ['salida', 'transferencia'].includes(categoria),
+    requiereDestino: ['entrada', 'transferencia', 'ajuste'].includes(categoria),
+    tipoBloqueado,
+    tipoForzado: tipoBloqueado ? 'interno' : null,
+    limitarDestinoNivel1: rol === 'encargado_principal' && categoria === 'entrada',
+    requiereTipoUso: Boolean(tipoMovimiento?.requiere_tipo_uso)
+  };
+}
+
+function normalizarTextoBusqueda(value) {
+  return String(value || '').trim().slice(0, 80);
+}
+
+function assertCategoriaValida(rol, categoria) {
+  if (!categoria) return null;
+  const categoriaValida = getCategoriasPermitidas(rol).find(c => c.value === categoria);
+  if (!categoriaValida) {
+    throw new Error('Su rol no tiene permisos para esta categoria de movimiento.');
+  }
+  return categoriaValida;
+}
+
+function assertTipoMovimientoValido(rol, tiposMovimiento, tipoMovimiento) {
+  if (!tipoMovimiento) return null;
+  const tipoValido = getTiposMovimientoPermitidos(rol, tiposMovimiento).find(t => t.value === tipoMovimiento);
+  if (!tipoValido) {
+    throw new Error('Su rol no tiene permisos para este tipo de movimiento.');
+  }
+  return tipoValido;
+}
+
+async function aplicarEfectoStockMovimiento(client, mov, factor = 1) {
+  const cantidad = Number(mov.cantidad || 0) * factor;
+  if (!cantidad) return;
+
+  if (mov.categoria === 'salida' || mov.categoria === 'transferencia') {
+    if (mov.deposito_origen_id) {
+      await client.query(`
+        INSERT INTO stock (deposito_id, lote_id, cantidad)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (deposito_id, lote_id)
+        DO UPDATE SET cantidad = stock.cantidad - $3, updated_at = NOW()
+      `, [mov.deposito_origen_id, mov.lote_id, cantidad]);
+    }
+  }
+
+  if (mov.estado === 'confirmado' && (mov.categoria === 'entrada' || mov.categoria === 'transferencia' || mov.categoria === 'ajuste')) {
+    const destino = mov.deposito_destino_id || mov.deposito_origen_id;
+    if (destino) {
+      await client.query(`
+        INSERT INTO stock (deposito_id, lote_id, cantidad)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (deposito_id, lote_id)
+        DO UPDATE SET cantidad = stock.cantidad + $3, updated_at = NOW()
+      `, [destino, mov.lote_id, cantidad]);
+    }
+  }
+}
+
+async function validarDatosMovimiento(client, req, data, options = {}) {
+  const {
+    tipo_movimiento,
+    categoria,
+    deposito_origen_id,
+    deposito_destino_id,
+    lote_id,
+    cantidad,
+    fecha_movimiento
+  } = data;
+
+  const cant = parseCantidad(cantidad);
+  if (!tipo_movimiento || !categoria || !lote_id || !fecha_movimiento) throw new Error('Complete los campos obligatorios.');
+  if (Number.isNaN(cant) || cant <= 0) throw new Error('La cantidad debe ser mayor a cero.');
+  if (!getCategoriasPermitidas(req.session.userRol).some(c => c.value === categoria)) {
+    throw new Error('Su rol no tiene permisos para registrar esta categoria de movimiento.');
+  }
+
+  const tiposMovimiento = await getTiposMovimiento();
+  const tiposPermitidosPorRol = getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento);
+  const tipoMovimiento = tiposPermitidosPorRol.find(t => t.value === tipo_movimiento);
+  if (!tipoMovimiento) {
+    throw new Error('Su rol no tiene permisos para registrar este tipo de movimiento.');
+  }
+  const tiposPermitidosCategoria = getTiposMovimientoPorCategoria(categoria, tiposPermitidosPorRol);
+  if (!tiposPermitidosCategoria.some(t => t.value === tipo_movimiento)) {
+    throw new Error('El tipo de movimiento no corresponde a la categoria seleccionada.');
+  }
+
+  const depIdsPermitidos = await getDepositoIdsPermitidos(req.session.userId, req.session.userRol);
+  assertDepositoPermitido(depIdsPermitidos, deposito_origen_id, 'No tiene permisos sobre el deposito de origen.');
+  assertDepositoPermitido(depIdsPermitidos, deposito_destino_id, 'No tiene permisos sobre el deposito de destino.');
+
+  if (req.session.userRol === 'encargado_principal' && categoria === 'entrada') {
+    const destino = await client.query('SELECT nivel FROM depositos WHERE id = $1 AND activo = true', [deposito_destino_id || null]);
+    if (!destino.rows[0] || Number(destino.rows[0].nivel) !== 1) {
+      throw new Error('El encargado principal solo puede registrar entradas a depositos de nivel 1.');
+    }
+  }
+
+  const loteRes = await client.query(`
+    SELECT l.*, i.id as ins_id, i.tipo_uso, COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]) as tipo_usos
+    FROM lotes l
+    JOIN insecticidas i ON l.insecticida_id = i.id
+    WHERE l.id = $1
+      AND l.activo = true
+      AND l.fecha_vencimiento >= CURRENT_DATE
+      AND i.activo = true
+  `, [lote_id]);
+  if (!loteRes.rows[0]) throw new Error('Lote no encontrado o no disponible para movimientos.');
+  const lote = loteRes.rows[0];
+  if ((tipoMovimiento.requiere_tipo_uso || categoria === 'salida') && !lote.tipo_usos.includes(tipo_movimiento)) {
+    throw new Error('El tipo de movimiento no esta habilitado para el insecticida seleccionado.');
+  }
+
+  const reglasFormulario = getReglasFormularioMovimiento({
+    rol: req.session.userRol,
+    categoria,
+    tipoMovimiento
+  });
+
+  if (reglasFormulario.requiereOrigen && !deposito_origen_id) {
+    throw new Error('Debe especificar el deposito de origen.');
+  }
+  if (reglasFormulario.requiereDestino && !deposito_destino_id) {
+    throw new Error('Debe especificar el deposito de destino.');
+  }
+  if (categoria === 'transferencia' && Number(deposito_origen_id) === Number(deposito_destino_id)) {
+    throw new Error('El deposito de origen y destino no pueden ser el mismo.');
+  }
+  if (categoria === 'entrada' && deposito_origen_id) {
+    throw new Error('La entrada no debe incluir deposito de origen.');
+  }
+  if (categoria === 'salida' && deposito_destino_id) {
+    throw new Error('La salida no debe incluir deposito de destino.');
+  }
+
+  if (categoria === 'salida' || categoria === 'transferencia') {
+    const stockRes = await client.query('SELECT cantidad FROM stock WHERE deposito_id = $1 AND lote_id = $2', [deposito_origen_id, lote_id]);
+    const stockActual = Number(stockRes.rows[0]?.cantidad || 0);
+    const stockAjustado = stockActual + Number(options.stockReservadoPrevio || 0);
+    if (stockAjustado < cant) throw new Error(`Stock insuficiente. Disponible: ${formatearNumero(stockAjustado)}`);
+  }
+
+  return { cant, lote, tipoMovimiento };
 }
 
 exports.index = async (req, res) => {
@@ -219,23 +394,11 @@ exports.index = async (req, res) => {
 
 exports.new = async (req, res) => {
   try {
-    const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
-    const insecticidas = await pool.query('SELECT * FROM insecticidas WHERE activo = true ORDER BY nombre');
     const tiposMovimiento = await getTiposMovimiento();
-    const lotes = await pool.query(`
-      SELECT l.*, i.nombre as insecticida_nombre, i.tipo_uso
-      FROM lotes l
-      JOIN insecticidas i ON l.insecticida_id = i.id
-      WHERE l.activo = true AND l.fecha_vencimiento >= CURRENT_DATE
-      ORDER BY i.nombre, l.codigo_lote
-    `);
 
     res.render('movimientos/form', {
       title: 'Registrar Movimiento',
       movimiento: {},
-      depositos: depositosPermitidos,
-      insecticidas: insecticidas.rows,
-      lotes: lotes.rows,
       categorias: getCategoriasPermitidas(req.session.userRol),
       tiposMovimiento: getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento),
       rolUsuario: req.session.userRol,
@@ -246,6 +409,151 @@ exports.new = async (req, res) => {
     console.error('Error cargando formulario de movimiento:', err);
     req.flash('error', 'Error al cargar formulario de movimiento.');
     res.redirect('/movimientos');
+  }
+};
+
+exports.edit = async (req, res) => {
+  const { id } = req.params;
+  if (!isAdminOrGerente(req.session.userRol)) {
+    req.flash('error', 'No tiene permisos para editar movimientos.');
+    return res.redirect(`/movimientos/${id}`);
+  }
+
+  try {
+    const mov = await pool.query(`
+      SELECT m.*, i.nombre as insecticida_nombre
+      FROM movimientos m
+      JOIN insecticidas i ON i.id = m.insecticida_id
+      WHERE m.id = $1
+    `, [id]);
+
+    if (!mov.rows[0]) {
+      req.flash('error', 'Movimiento no encontrado.');
+      return res.redirect('/movimientos');
+    }
+    if (mov.rows[0].estado === 'anulado') {
+      req.flash('error', 'No se puede editar un movimiento anulado.');
+      return res.redirect(`/movimientos/${id}`);
+    }
+
+    const tiposMovimiento = await getTiposMovimiento();
+    res.render('movimientos/form', {
+      title: `Editar Movimiento ${mov.rows[0].numero_mov}`,
+      movimiento: mov.rows[0],
+      categorias: getCategoriasPermitidas(req.session.userRol),
+      tiposMovimiento: getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento),
+      rolUsuario: req.session.userRol,
+      tipoMovimientoLabel,
+      errors: req.flash('error')
+    });
+  } catch (err) {
+    console.error('Error cargando edicion de movimiento:', err);
+    req.flash('error', 'Error al cargar el movimiento para editar.');
+    res.redirect(`/movimientos/${id}`);
+  }
+};
+
+exports.getOpcionesFormulario = async (req, res) => {
+  const {
+    categoria = '',
+    tipo_movimiento = '',
+    insecticida_id = '',
+    deposito_origen_id = '',
+    q = ''
+  } = req.query;
+
+  try {
+    const busqueda = normalizarTextoBusqueda(q);
+    const tiposMovimiento = await getTiposMovimiento();
+    const categoriaValida = assertCategoriaValida(req.session.userRol, categoria);
+    const tiposPermitidosPorRol = getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento);
+    const tiposPermitidosPorCategoria = getTiposMovimientoPorCategoria(categoriaValida?.value, tiposPermitidosPorRol);
+    const categoriaFijaTipo = CATEGORIAS_TIPO_INTERNO.includes(categoriaValida?.value);
+    const tipoSolicitado = categoriaFijaTipo ? 'interno' : tipo_movimiento;
+    const tipoValido = tipoSolicitado
+      ? tiposPermitidosPorCategoria.find(t => t.value === tipoSolicitado)
+      : null;
+    if (tipoSolicitado && !tipoValido) {
+      throw new Error('El tipo de movimiento no esta permitido para la categoria seleccionada.');
+    }
+    const reglas = getReglasFormularioMovimiento({
+      rol: req.session.userRol,
+      categoria: categoriaValida?.value || '',
+      tipoMovimiento: tipoValido
+    });
+    const filtrarPorTipoUso = Boolean(tipoValido && (tipoValido.requiere_tipo_uso || categoriaValida?.value === 'salida'));
+
+    const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
+    const depositosDestino = reglas.limitarDestinoNivel1
+      ? depositosPermitidos.filter(d => Number(d.nivel) === 1)
+      : depositosPermitidos;
+
+    const params = [];
+    const whereInsecticidas = ['i.activo = true'];
+    if (categoriaValida?.value === 'salida' && !tipoValido) {
+      whereInsecticidas.push('false');
+    }
+    if (filtrarPorTipoUso) {
+      params.push(tipoValido.value);
+      whereInsecticidas.push(`$${params.length} = ANY(COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]))`);
+    }
+    if (busqueda) {
+      params.push(`%${busqueda}%`);
+      whereInsecticidas.push(`(i.nombre ILIKE $${params.length} OR i.codigo ILIKE $${params.length})`);
+    }
+
+    const insecticidas = await pool.query(`
+      SELECT i.id, i.codigo, i.nombre, i.tipo_uso, COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]) as tipo_usos
+      FROM insecticidas i
+      WHERE ${whereInsecticidas.join(' AND ')}
+      ORDER BY i.nombre
+      LIMIT 80
+    `, params);
+
+    const lotesParams = [];
+    const lotesWhere = ['l.activo = true', 'l.fecha_vencimiento >= CURRENT_DATE'];
+    if (insecticida_id) {
+      lotesParams.push(insecticida_id);
+      lotesWhere.push(`l.insecticida_id = $${lotesParams.length}`);
+    } else {
+      lotesWhere.push('false');
+    }
+    if (busqueda) {
+      lotesParams.push(`%${busqueda}%`);
+      lotesWhere.push(`l.codigo_lote ILIKE $${lotesParams.length}`);
+    }
+    if (filtrarPorTipoUso) {
+      lotesParams.push(tipoValido.value);
+      lotesWhere.push(`$${lotesParams.length} = ANY(COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]))`);
+    }
+
+    const lotes = await pool.query(`
+      SELECT l.id, l.insecticida_id, l.codigo_lote, l.fecha_vencimiento, l.unidad_medida,
+        COALESCE(st.cantidad, 0) as stock_origen
+      FROM lotes l
+      JOIN insecticidas i ON i.id = l.insecticida_id
+      LEFT JOIN stock st ON st.lote_id = l.id AND st.deposito_id = $${lotesParams.length + 1}
+      WHERE ${lotesWhere.join(' AND ')}
+      ORDER BY l.fecha_vencimiento, l.codigo_lote
+      LIMIT 80
+    `, [...lotesParams, deposito_origen_id || null]);
+
+    res.json({
+      categorias: getCategoriasPermitidas(req.session.userRol),
+      tiposMovimiento: tiposPermitidosPorCategoria,
+      reglas,
+      depositosOrigen: depositosPermitidos.map(d => ({ id: d.id, nombre: d.nombre, nivel: d.nivel })),
+      depositosDestino: depositosDestino.map(d => ({ id: d.id, nombre: d.nombre, nivel: d.nivel })),
+      insecticidas: insecticidas.rows.map(i => ({
+        id: i.id,
+        codigo: i.codigo,
+        nombre: i.nombre,
+        tipo_usos: i.tipo_usos || []
+      })),
+      lotes: lotes.rows
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'No se pudieron cargar las opciones del formulario.' });
   }
 };
 
@@ -266,84 +574,25 @@ exports.create = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const cant = Number(cantidad);
-    if (!tipo_movimiento || !categoria || !lote_id || !fecha_movimiento) throw new Error('Complete los campos obligatorios.');
-    if (Number.isNaN(cant) || cant <= 0) throw new Error('La cantidad debe ser mayor a cero.');
-    if (!getCategoriasPermitidas(req.session.userRol).some(c => c.value === categoria)) {
-      throw new Error('Su rol no tiene permisos para registrar esta categoria de movimiento.');
-    }
-
-    const tiposMovimiento = await getTiposMovimiento();
-    const tipoMovimiento = getTiposMovimientoPermitidos(req.session.userRol, tiposMovimiento).find(t => t.value === tipo_movimiento);
-    if (!tipoMovimiento) {
-      throw new Error('Su rol no tiene permisos para registrar este tipo de movimiento.');
-    }
-    if (['entrada', 'transferencia', 'ajuste'].includes(categoria) && tipo_movimiento !== 'interno') {
-      throw new Error('Las entradas, transferencias y ajustes de inventario deben registrarse como movimiento interno.');
-    }
-
-    const depIdsPermitidos = await getDepositoIdsPermitidos(req.session.userId, req.session.userRol);
-    assertDepositoPermitido(depIdsPermitidos, deposito_origen_id, 'No tiene permisos sobre el deposito de origen.');
-    assertDepositoPermitido(depIdsPermitidos, deposito_destino_id, 'No tiene permisos sobre el deposito de destino.');
-
-    if (req.session.userRol === 'encargado_principal' && categoria === 'entrada') {
-      const destino = await client.query('SELECT nivel FROM depositos WHERE id = $1 AND activo = true', [deposito_destino_id || null]);
-      if (!destino.rows[0] || Number(destino.rows[0].nivel) !== 1) {
-        throw new Error('El encargado principal solo puede registrar entradas a depositos de nivel 1.');
-      }
-    }
-
-    const loteRes = await client.query(`
-      SELECT l.*, i.id as ins_id, i.tipo_uso, COALESCE(i.tipo_usos, ARRAY[i.tipo_uso::TEXT]) as tipo_usos
-      FROM lotes l
-      JOIN insecticidas i ON l.insecticida_id = i.id
-      WHERE l.id = $1
-    `, [lote_id]);
-    if (!loteRes.rows[0]) throw new Error('Lote no encontrado.');
-    const lote = loteRes.rows[0];
-    if (tipoMovimiento.requiere_tipo_uso && !lote.tipo_usos.includes(tipo_movimiento)) {
-      throw new Error('El tipo de movimiento no esta habilitado para el insecticida seleccionado.');
-    }
+    const { cant, lote } = await validarDatosMovimiento(client, req, req.body);
 
     const destinoRequiereConfirmacion = Boolean(deposito_destino_id)
       && !['admin', 'gerente'].includes(req.session.userRol)
       && !(await usuarioEsResponsableDeposito(client, req.session.userId, deposito_destino_id));
     const estadoMovimiento = destinoRequiereConfirmacion ? 'pendiente' : 'confirmado';
 
-    if ((categoria === 'entrada' || categoria === 'transferencia') && !deposito_destino_id) {
-      throw new Error('Debe especificar el deposito de destino.');
-    }
-    if (categoria === 'ajuste' && !deposito_destino_id) {
-      throw new Error('Debe especificar el deposito donde se realizara el ajuste.');
-    }
-
-    if (categoria === 'salida' || categoria === 'transferencia') {
-      if (!deposito_origen_id) throw new Error('Debe especificar el deposito de origen.');
-      const stockRes = await client.query('SELECT cantidad FROM stock WHERE deposito_id = $1 AND lote_id = $2', [deposito_origen_id, lote_id]);
-      const stockActual = Number(stockRes.rows[0]?.cantidad || 0);
-      if (stockActual < cant) throw new Error(`Stock insuficiente. Disponible: ${stockActual}`);
-
-      await client.query(`
-        INSERT INTO stock (deposito_id, lote_id, cantidad)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (deposito_id, lote_id)
-        DO UPDATE SET cantidad = stock.cantidad - $3, updated_at = NOW()
-      `, [deposito_origen_id, lote_id, cant]);
-    }
-
-    if (estadoMovimiento === 'confirmado' && (categoria === 'entrada' || categoria === 'transferencia' || categoria === 'ajuste')) {
-      const destino = deposito_destino_id || deposito_origen_id;
-
-      await client.query(`
-        INSERT INTO stock (deposito_id, lote_id, cantidad)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (deposito_id, lote_id)
-        DO UPDATE SET cantidad = stock.cantidad + $3, updated_at = NOW()
-      `, [destino, lote_id, cant]);
-    }
-
     const numeroMov = generarNumeroMovimiento();
     const semanaInfo = calcularSemanaEpidemiologica(fecha_movimiento);
+    const movimientoStock = {
+      categoria,
+      deposito_origen_id: deposito_origen_id || null,
+      deposito_destino_id: deposito_destino_id || null,
+      lote_id,
+      cantidad: cant,
+      estado: estadoMovimiento
+    };
+    await aplicarEfectoStockMovimiento(client, movimientoStock, 1);
+
     const movRes = await client.query(`
       INSERT INTO movimientos
         (numero_mov, tipo_movimiento, categoria, deposito_origen_id, deposito_destino_id, lote_id,
@@ -382,6 +631,107 @@ exports.create = async (req, res) => {
     console.error('Error creando movimiento:', err);
     req.flash('error', err.message || 'Error al registrar movimiento.');
     res.redirect('/movimientos/nuevo');
+  } finally {
+    client.release();
+  }
+};
+
+exports.update = async (req, res) => {
+  const { id } = req.params;
+  const {
+    tipo_movimiento,
+    categoria,
+    deposito_origen_id,
+    deposito_destino_id,
+    lote_id,
+    cantidad,
+    fecha_movimiento,
+    descripcion,
+    observaciones
+  } = req.body;
+
+  if (!isAdminOrGerente(req.session.userRol)) {
+    req.flash('error', 'No tiene permisos para editar movimientos.');
+    return res.redirect(`/movimientos/${id}`);
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const oldRes = await client.query('SELECT * FROM movimientos WHERE id = $1 FOR UPDATE', [id]);
+    const oldMov = oldRes.rows[0];
+    if (!oldMov) throw new Error('Movimiento no encontrado.');
+    if (oldMov.estado === 'anulado') throw new Error('No se puede editar un movimiento anulado.');
+
+    await aplicarEfectoStockMovimiento(client, oldMov, -1);
+
+    const { cant, lote } = await validarDatosMovimiento(client, req, req.body);
+    const semanaInfo = calcularSemanaEpidemiologica(fecha_movimiento);
+    const estadoMovimiento = 'confirmado';
+
+    const nextMov = {
+      ...oldMov,
+      tipo_movimiento,
+      categoria,
+      deposito_origen_id: deposito_origen_id || null,
+      deposito_destino_id: deposito_destino_id || null,
+      lote_id,
+      insecticida_id: lote.ins_id,
+      cantidad: cant,
+      fecha_movimiento,
+      semana_epidemiologica: semanaInfo.semana,
+      estado: estadoMovimiento
+    };
+
+    await aplicarEfectoStockMovimiento(client, nextMov, 1);
+
+    await client.query(`
+      UPDATE movimientos
+      SET tipo_movimiento = $1,
+          categoria = $2,
+          deposito_origen_id = $3,
+          deposito_destino_id = $4,
+          lote_id = $5,
+          insecticida_id = $6,
+          cantidad = $7,
+          fecha_movimiento = $8,
+          semana_epidemiologica = $9,
+          "a\u00f1o_epidemiologico" = $10,
+          descripcion = $11,
+          observaciones = $12,
+          estado = $13,
+          aprobado_por = COALESCE(aprobado_por, $14),
+          confirmado_at = COALESCE(confirmado_at, NOW()),
+          updated_at = NOW()
+      WHERE id = $15
+    `, [
+      tipo_movimiento,
+      categoria,
+      deposito_origen_id || null,
+      deposito_destino_id || null,
+      lote_id,
+      lote.ins_id,
+      cant,
+      fecha_movimiento,
+      semanaInfo.semana,
+      getAnioEpidemiologico(semanaInfo),
+      descripcion,
+      observaciones,
+      estadoMovimiento,
+      req.session.userId,
+      id
+    ]);
+
+    await client.query('COMMIT');
+    await auditLog(req, 'EDITAR_MOVIMIENTO', 'movimientos', id, oldMov, req.body);
+    req.flash('success', `Movimiento ${oldMov.numero_mov} actualizado correctamente.`);
+    res.redirect(`/movimientos/${id}`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error editando movimiento:', err);
+    req.flash('error', err.message || 'Error al editar movimiento.');
+    res.redirect(`/movimientos/${id}/editar`);
   } finally {
     client.release();
   }

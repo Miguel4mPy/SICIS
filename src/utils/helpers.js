@@ -19,9 +19,26 @@ function formatearFecha(fecha) {
   return moment(fecha).format('DD/MM/YYYY');
 }
 
-function formatearCantidad(cantidad, unidad) {
+function formatearNumero(cantidad, fractionDigits = 3) {
   const n = parseFloat(cantidad || 0);
-  return `${n.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} ${unidad || ''}`;
+  return n.toLocaleString('es-PY', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  });
+}
+
+function formatearCantidad(cantidad, unidad, fractionDigits = 3) {
+  return `${formatearNumero(cantidad, fractionDigits)} ${unidad || ''}`.trim();
+}
+
+function parseCantidad(cantidad) {
+  const rawValue = String(cantidad || '').trim();
+  if (!rawValue) return NaN;
+
+  return Number(rawValue
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.'));
 }
 
 function diasHastaVencimiento(fechaVenc) {
@@ -85,7 +102,9 @@ module.exports = {
   generarNumeroMovimiento,
   calcularSemanaEpidemiologica,
   formatearFecha,
+  formatearNumero,
   formatearCantidad,
+  parseCantidad,
   diasHastaVencimiento,
   estadoVencimiento,
   generarOTP,

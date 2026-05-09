@@ -30,8 +30,8 @@
 
 <div class="card shadow-sm mb-4 d-print-none">
   <div class="card-body py-3">
-    <form method="GET" action="/reportes/grafico" class="row g-2 align-items-end">
-      <div class="col-md-3">
+    <form method="GET" action="/reportes/grafico" class="row g-2 align-items-end grafico-filter-row">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label small fw-semibold">Grafico</label>
         <select class="form-select form-select-sm" name="tipo_grafico">
           <option value="movimientos_por_tipo" <%= tipo_grafico === 'movimientos_por_tipo' ? 'selected' : '' %>>Movimientos por tipo</option>
@@ -39,15 +39,15 @@
           <option value="movimientos_por_semana" <%= tipo_grafico === 'movimientos_por_semana' ? 'selected' : '' %>>Movimientos por semana</option>
         </select>
       </div>
-      <div class="col-md-3">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label small fw-semibold">Fecha Desde</label>
         <input type="date" class="form-control form-control-sm" name="fecha_desde" value="<%= filtros.fecha_desde || '' %>">
       </div>
-      <div class="col-md-3">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label small fw-semibold">Fecha Hasta</label>
         <input type="date" class="form-control form-control-sm" name="fecha_hasta" value="<%= filtros.fecha_hasta || '' %>">
       </div>
-      <div class="col-md-3">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label small fw-semibold">Deposito</label>
         <select class="form-select form-select-sm" name="deposito_id">
           <option value="">Todos</option>
@@ -56,16 +56,20 @@
           <% }) %>
         </select>
       </div>
-      <div class="col-md-2">
+      <div class="col-12 col-sm-6 col-lg-2">
         <label class="form-label small fw-semibold">Año</label>
         <select class="form-select form-select-sm" name="anio">
-          <% anios.forEach(a => { %>
-          <option value="<%= a %>" <%= filtros.anio == a ? 'selected' : '' %>><%= a %></option>
-          <% }) %>
+          <% if (anios.length) { %>
+            <% anios.forEach(a => { %>
+            <option value="<%= a %>" <%= filtros.anio == a ? 'selected' : '' %>><%= a %></option>
+            <% }) %>
+          <% } else { %>
+            <option value="">Sin registros</option>
+          <% } %>
         </select>
       </div>
-      <div class="col-md-auto">
-        <button type="submit" class="btn btn-warning btn-sm px-4">
+      <div class="col-12 col-sm-6 col-lg-2">
+        <button type="submit" class="btn btn-warning btn-sm px-4 w-100">
           <i class="bi bi-graph-up me-1"></i>Actualizar
         </button>
       </div>
@@ -92,8 +96,8 @@
   <div class="card-header bg-white py-3">
     <h6 class="mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Resultado</h6>
   </div>
-  <div class="card-body" style="min-height: <%= tipo_grafico === 'movimientos_por_tipo' ? '620px' : '500px' %>">
-    <div style="height: <%= tipo_grafico === 'movimientos_por_tipo' ? '450px' : '470px' %>">
+  <div class="card-body reporte-chart-body <%= tipo_grafico === 'stock_por_insecticida' ? 'reporte-chart-body--stock' : '' %>" style="min-height: <%= tipo_grafico === 'movimientos_por_tipo' ? '620px' : (tipo_grafico === 'stock_por_insecticida' ? '0' : '500px') %>">
+    <div class="reporte-chart-canvas-wrap" style="height: <%= tipo_grafico === 'movimientos_por_tipo' ? '450px' : '470px' %>">
       <canvas id="chartReporte"></canvas>
     </div>
     <div id="multiChartWrap" class="weekly-unit-charts d-none"></div>
@@ -139,6 +143,25 @@ function getDataTotal(dataset) {
   }, 0);
 }
 
+function createStockSegmentLabel(dataset, value, unit) {
+  var label = document.createElement('span');
+  label.className = 'stock-css-segment-label';
+
+  var title = document.createElement('strong');
+  title.textContent = 'Lote ' + (dataset.meta && dataset.meta.lote ? dataset.meta.lote : '-');
+
+  var amount = document.createElement('span');
+  amount.textContent = formatoCantidadGrafico(value) + ' ' + ((dataset.meta && dataset.meta.unidad_medida) || unit || '');
+
+  var vto = document.createElement('small');
+  vto.textContent = 'Vto. ' + ((dataset.meta && dataset.meta.vencimiento) || '-') + ' | ' + ((dataset.meta && dataset.meta.estado_vencimiento) || '-');
+
+  label.appendChild(title);
+  label.appendChild(amount);
+  label.appendChild(vto);
+  return label;
+}
+
 function distributeLabelRows(items, minY, maxY, gap) {
   items.sort(function(a, b) {
     return a.targetY - b.targetY;
@@ -180,7 +203,8 @@ function renderMovimientosLegend(data) {
     var text = document.createElement('span');
     text.textContent = label + ' - ' + formatoCantidadGrafico(value) + ' (' + percent + '%)';
 
-    item.append(swatch, text);
+    item.appendChild(swatch);
+    item.appendChild(text);
     customLegend.appendChild(item);
   });
 }
@@ -215,9 +239,9 @@ function styleChartDatasets(data) {
     dataset.backgroundColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
     dataset.borderColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
     dataset.borderWidth = 1;
-    dataset.maxBarThickness = 44;
-    dataset.categoryPercentage = 0.58;
-    dataset.barPercentage = 0.78;
+    dataset.maxBarThickness = 84;
+    dataset.categoryPercentage = 0.72;
+    dataset.barPercentage = 0.9;
     dataset.base = 0;
   });
   return data;
@@ -350,7 +374,11 @@ var sicisDataLabelsPlugin = {
           ctx.strokeStyle = '#cbd5e1';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.roundRect(labelLeft, labelTop, labelWidth, labelHeight, 4);
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(labelLeft, labelTop, labelWidth, labelHeight, 4);
+          } else {
+            ctx.rect(labelLeft, labelTop, labelWidth, labelHeight);
+          }
           ctx.fill();
           ctx.stroke();
 
@@ -386,7 +414,7 @@ var sicisDataLabelsPlugin = {
           ctx.fillStyle = '#ffffff';
           ctx.font = '700 10px Barlow, Arial, sans-serif';
           ctx.textAlign = 'center';
-          var unidad = dataset.meta?.unidad_medida || '';
+          var unidad = dataset.meta && dataset.meta.unidad_medida ? dataset.meta.unidad_medida : '';
           ctx.fillText(formatoCantidadGrafico(value) + (unidad ? ' ' + unidad : ''), props.x, props.y + (props.base - props.y) / 2);
         });
       });
@@ -417,17 +445,20 @@ if (!chartData.labels || chartData.labels.length === 0) {
 } else if (isStockPorInsecticidaPorUnidad) {
   canvas.parentElement.classList.add('d-none');
   multiChartWrap.classList.remove('d-none');
+  multiChartWrap.classList.add('stock-unit-charts');
   multiChartWrap.innerHTML = '';
 
   chartData.unitGroups.forEach(function(group) {
     var panel = document.createElement('div');
-    panel.className = 'weekly-unit-chart-panel';
+    var labels = group.labels || [];
+    var panelSize = labels.length <= 3 ? 'compact' : (labels.length <= 6 ? 'medium' : 'wide');
+    panel.className = 'weekly-unit-chart-panel stock-unit-chart-panel stock-unit-chart-panel--' + panelSize;
+    panel.style.setProperty('--stock-category-width', labels.length <= 3 ? '150px' : (labels.length <= 6 ? '170px' : '190px'));
 
     var title = document.createElement('div');
     title.className = 'weekly-unit-chart-title';
     title.textContent = 'Unidad: ' + (group.unidad || 'Sin unidad');
 
-    var labels = group.labels || [];
     var datasets = group.datasets || [];
     var totalsByLabel = labels.map(function(_, labelIndex) {
       return datasets.reduce(function(sum, dataset) {
@@ -440,7 +471,7 @@ if (!chartData.labels || chartData.labels.length === 0) {
     var scaleMax = maxValue ? maxValue * 1.12 : 1;
 
     var chart = document.createElement('div');
-    chart.className = 'weekly-css-chart';
+    chart.className = 'weekly-css-chart stock-css-chart';
 
     var axis = document.createElement('div');
     axis.className = 'weekly-css-axis';
@@ -451,7 +482,7 @@ if (!chartData.labels || chartData.labels.length === 0) {
     });
 
     var plot = document.createElement('div');
-    plot.className = 'weekly-css-plot';
+    plot.className = 'weekly-css-plot stock-css-plot';
     [0, 1, 2, 3, 4].forEach(function() {
       var line = document.createElement('span');
       line.className = 'weekly-css-gridline';
@@ -469,22 +500,27 @@ if (!chartData.labels || chartData.labels.length === 0) {
       var stack = document.createElement('div');
       stack.className = 'stock-css-stack';
       stack.style.height = Math.max(2, (total / scaleMax) * 100) + '%';
+      var outsideLabels = document.createElement('div');
+      outsideLabels.className = 'stock-css-outside-labels';
 
       datasets.forEach(function(dataset) {
         var value = Number((dataset.data || [])[labelIndex] || 0);
         if (!value) return;
 
+        var segmentRatio = total ? value / total : 0;
         var segment = document.createElement('div');
         segment.className = 'stock-css-segment';
-        segment.style.height = (value / total) * 100 + '%';
+        segment.style.height = segmentRatio * 100 + '%';
         segment.style.backgroundColor = dataset.backgroundColor || '#1e88e5';
-        segment.title = dataset.label;
+        segment.title = ((dataset.meta && dataset.meta.lote) || dataset.label) + ' | Stock: ' + formatoCantidadGrafico(value) + ' ' + ((dataset.meta && dataset.meta.unidad_medida) || group.unidad || '') + ' | Vto.: ' + ((dataset.meta && dataset.meta.vencimiento) || '-') + ' | Estado: ' + ((dataset.meta && dataset.meta.estado_vencimiento) || '-');
 
-        if ((value / total) >= .18) {
-          var segmentText = document.createElement('span');
-          segmentText.className = 'stock-css-segment-label';
-          segmentText.textContent = formatoCantidadGrafico(value);
+        var segmentText = createStockSegmentLabel(dataset, value, group.unidad);
+        if (segmentRatio >= .18) {
           segment.appendChild(segmentText);
+        } else {
+          segment.classList.add('stock-css-segment--external-label');
+          segmentText.classList.add('stock-css-segment-label--outside');
+          outsideLabels.appendChild(segmentText);
         }
         stack.appendChild(segment);
       });
@@ -494,30 +530,22 @@ if (!chartData.labels || chartData.labels.length === 0) {
       valueLabel.textContent = total ? formatoCantidadGrafico(total) : '';
       stack.appendChild(valueLabel);
       bars.appendChild(stack);
+      if (outsideLabels.children.length) {
+        bars.appendChild(outsideLabels);
+      }
 
       var categoryLabel = document.createElement('div');
       categoryLabel.className = 'weekly-css-week-label';
       categoryLabel.textContent = label;
-      category.append(bars, categoryLabel);
+      category.appendChild(bars);
+      category.appendChild(categoryLabel);
       plot.appendChild(category);
     });
 
-    var legend = document.createElement('div');
-    legend.className = 'weekly-css-legend';
-    datasets.forEach(function(dataset) {
-      var item = document.createElement('div');
-      item.className = 'weekly-css-legend-item';
-      var swatch = document.createElement('span');
-      swatch.className = 'weekly-css-legend-swatch';
-      swatch.style.backgroundColor = dataset.backgroundColor || '#1e88e5';
-      var text = document.createElement('span');
-      text.textContent = dataset.label;
-      item.append(swatch, text);
-      legend.appendChild(item);
-    });
-
-    chart.append(axis, plot);
-    panel.append(title, chart, legend);
+    chart.appendChild(axis);
+    chart.appendChild(plot);
+    panel.appendChild(title);
+    panel.appendChild(chart);
     multiChartWrap.appendChild(panel);
   });
 } else if (isMovimientosPorSemanaInsecticida && Array.isArray(chartData.unitGroups)) {
@@ -575,8 +603,15 @@ if (!chartData.labels || chartData.labels.length === 0) {
         bar.title = dataset.label + ': ' + formatoCantidadGrafico(value) + ' ' + (group.unidad || '');
 
         var valueLabel = document.createElement('span');
-        valueLabel.className = 'weekly-css-bar-value';
-        valueLabel.textContent = value ? formatoCantidadGrafico(value) : '';
+        valueLabel.className = 'weekly-css-bar-value weekly-css-bar-detail';
+        if (value) {
+          var nameLine = document.createElement('strong');
+          nameLine.textContent = dataset.label;
+          var amountLine = document.createElement('span');
+          amountLine.textContent = formatoCantidadGrafico(value) + (group.unidad ? ' ' + group.unidad : '');
+          valueLabel.appendChild(nameLine);
+          valueLabel.appendChild(amountLine);
+        }
         bar.appendChild(valueLabel);
         bars.appendChild(bar);
       });
@@ -584,26 +619,15 @@ if (!chartData.labels || chartData.labels.length === 0) {
       var weekLabel = document.createElement('div');
       weekLabel.className = 'weekly-css-week-label';
       weekLabel.textContent = label;
-      week.append(bars, weekLabel);
+      week.appendChild(bars);
+      week.appendChild(weekLabel);
       plot.appendChild(week);
     });
 
-    var legend = document.createElement('div');
-    legend.className = 'weekly-css-legend';
-    datasets.forEach(function(dataset, datasetIndex) {
-      var item = document.createElement('div');
-      item.className = 'weekly-css-legend-item';
-      var swatch = document.createElement('span');
-      swatch.className = 'weekly-css-legend-swatch';
-      swatch.style.backgroundColor = sicisChartPalette[datasetIndex % sicisChartPalette.length];
-      var text = document.createElement('span');
-      text.textContent = dataset.label;
-      item.append(swatch, text);
-      legend.appendChild(item);
-    });
-
-    chart.append(axis, plot);
-    panel.append(title, chart, legend);
+    chart.appendChild(axis);
+    chart.appendChild(plot);
+    panel.appendChild(title);
+    panel.appendChild(chart);
     multiChartWrap.appendChild(panel);
   });
 } else {
@@ -678,7 +702,7 @@ if (!chartData.labels || chartData.labels.length === 0) {
         tooltip: {
           callbacks: {
             title: function(items) {
-              return items[0]?.label || '';
+              return items && items[0] ? items[0].label || '' : '';
             },
             label: function(context) {
               if (isMovimientosPorTipo) {
@@ -689,7 +713,7 @@ if (!chartData.labels || chartData.labels.length === 0) {
               }
 
               if (!isStockPorInsecticida || !context.dataset.meta) {
-                var unidad = context.dataset.meta?.unidad_medida || '';
+                var unidad = context.dataset.meta && context.dataset.meta.unidad_medida ? context.dataset.meta.unidad_medida : '';
                 return context.dataset.label + ': ' + formatoCantidadGrafico(context.parsed.y || context.raw) + (unidad ? ' ' + unidad : '');
               }
 
@@ -775,11 +799,32 @@ if (!chartData.labels || chartData.labels.length === 0) {
   display: grid;
   gap: 1rem;
 }
+.reporte-chart-body--stock {
+  min-width: 0;
+  padding: 1rem;
+}
+.stock-unit-charts {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 620px));
+  justify-content: center;
+  align-items: start;
+}
 .weekly-unit-chart-panel {
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: .85rem;
   background: #fff;
+}
+.stock-unit-chart-panel {
+  min-width: 0;
+}
+.stock-unit-chart-panel--compact {
+  max-width: 480px;
+}
+.stock-unit-chart-panel--medium {
+  max-width: 620px;
+}
+.stock-unit-chart-panel--wide {
+  max-width: none;
 }
 .weekly-unit-chart-title {
   color: #1f2937;
@@ -791,6 +836,10 @@ if (!chartData.labels || chartData.labels.length === 0) {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   min-height: 340px;
+}
+.stock-css-chart {
+  grid-template-columns: 58px minmax(0, 1fr);
+  min-height: 280px;
 }
 .weekly-css-axis {
   display: flex;
@@ -806,14 +855,26 @@ if (!chartData.labels || chartData.labels.length === 0) {
   position: relative;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(120px, 1fr);
+  grid-auto-columns: minmax(150px, 1fr);
   align-items: stretch;
   gap: 1rem;
   min-height: 300px;
-  padding: 0 .5rem;
+  padding: 3.2rem .5rem 0;
   border-left: 1px solid #cbd5e1;
   border-bottom: 0;
   overflow-x: auto;
+}
+.stock-css-plot {
+  grid-auto-columns: minmax(var(--stock-category-width, 92px), var(--stock-category-width, 92px));
+  justify-content: center;
+  gap: .75rem;
+  min-height: 240px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 2rem .35rem 0;
+}
+.stock-unit-chart-panel--wide .stock-css-plot {
+  justify-content: start;
 }
 .weekly-css-gridline {
   position: absolute;
@@ -860,12 +921,12 @@ if (!chartData.labels || chartData.labels.length === 0) {
   display: flex;
   align-items: end;
   justify-content: center;
-  gap: .35rem;
+  gap: .55rem;
   height: 100%;
 }
 .weekly-css-bar {
   position: relative;
-  width: 34px;
+  width: 86px;
   min-height: 2px;
   border-radius: 4px 4px 0 0;
 }
@@ -873,10 +934,12 @@ if (!chartData.labels || chartData.labels.length === 0) {
   position: relative;
   display: flex;
   flex-direction: column-reverse;
-  width: 44px;
+  width: clamp(92px, 72%, 118px);
   min-height: 2px;
   border-radius: 4px 4px 0 0;
   overflow: visible;
+  border: 1px solid rgba(15, 23, 42, .28);
+  background: #fff;
 }
 .stock-css-segment {
   position: relative;
@@ -884,6 +947,17 @@ if (!chartData.labels || chartData.labels.length === 0) {
   align-items: center;
   justify-content: center;
   min-height: 2px;
+  border-top: 1px solid rgba(255, 255, 255, .72);
+  border-bottom: 1px solid rgba(15, 23, 42, .34);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .12);
+}
+.stock-css-segment--external-label::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: .45rem;
+  border-top: 1px solid #94a3b8;
 }
 .stock-css-segment:first-child {
   border-radius: 0 0 4px 4px;
@@ -892,14 +966,50 @@ if (!chartData.labels || chartData.labels.length === 0) {
   border-radius: 4px 4px 0 0;
 }
 .stock-css-segment-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .05rem;
   color: #fff;
-  font-size: .64rem;
+  font-size: .62rem;
   font-weight: 700;
-  line-height: 1;
-  padding: 0 .15rem;
+  line-height: 1.08;
+  max-width: 100%;
+  padding: .12rem .18rem;
   text-align: center;
   text-shadow: 0 1px 1px rgba(15, 23, 42, .35);
+  overflow: hidden;
+}
+.stock-css-segment-label span,
+.stock-css-segment-label small,
+.stock-css-segment-label strong {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+.stock-css-outside-labels {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: .22rem;
+  max-width: 128px;
+  padding-bottom: .35rem;
+}
+.stock-css-segment-label--outside {
+  align-items: flex-start;
+  width: 124px;
+  padding: .18rem .28rem;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #64748b;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .96);
+  color: #1f2937;
+  text-align: left;
+  text-shadow: none;
 }
 .stock-css-total-label {
   bottom: calc(100% + 5px);
@@ -912,6 +1022,30 @@ if (!chartData.labels || chartData.labels.length === 0) {
   color: #334155;
   font-size: .68rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+.weekly-css-bar-detail {
+  display: flex;
+  flex-direction: column;
+  gap: .05rem;
+  width: 102px;
+  max-width: 112px;
+  padding: .12rem .18rem;
+  border: 1px solid #dbe5ef;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .08);
+  color: #1f2937;
+  font-size: .62rem;
+  line-height: 1.08;
+  white-space: normal;
+}
+.weekly-css-bar-detail strong,
+.weekly-css-bar-detail span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .weekly-css-week-label {
@@ -944,5 +1078,25 @@ if (!chartData.labels || chartData.labels.length === 0) {
   width: .7rem;
   height: .7rem;
   border-radius: 3px;
+}
+@media (max-width: 575.98px) {
+  .reporte-chart-body--stock {
+    padding: .75rem;
+  }
+  .stock-unit-charts {
+    grid-template-columns: 1fr;
+  }
+  .stock-css-chart {
+    grid-template-columns: 48px minmax(0, 1fr);
+    min-height: 250px;
+  }
+  .stock-css-plot {
+    justify-content: start;
+    grid-auto-columns: minmax(132px, 150px);
+  }
+  .weekly-css-axis {
+    padding-right: .45rem;
+    font-size: .66rem;
+  }
 }
 </style>

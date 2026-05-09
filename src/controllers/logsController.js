@@ -18,6 +18,33 @@ function addDateFilters(filters, params, alias, desde, hasta) {
   }
 }
 
+function toMb(bytes) {
+  return Number(bytes || 0) / 1024 / 1024;
+}
+
+function percent(value, total) {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, (Number(value || 0) / Number(total)) * 100));
+}
+
+function cpuSnapshot() {
+  return os.cpus().reduce((acc, cpu) => {
+    const times = cpu.times;
+    const idle = times.idle;
+    const total = Object.values(times).reduce((sum, value) => sum + value, 0);
+    return {
+      idle: acc.idle + idle,
+      total: acc.total + total
+    };
+  }, { idle: 0, total: 0 });
+}
+
+function cpuPercentBetween(start, end) {
+  const idleDelta = end.idle - start.idle;
+  const totalDelta = end.total - start.total;
+  return totalDelta > 0 ? percent(totalDelta - idleDelta, totalDelta) : null;
+}
+
 exports.index = async (req, res) => {
   const {
     tipo = 'todos',
@@ -80,6 +107,9 @@ exports.index = async (req, res) => {
     }
 
     const systemWhere = systemFilters.length ? `WHERE ${systemFilters.join(' AND ')}` : '';
+    const cpuStart = cpuSnapshot();
+    const processCpuStart = process.cpuUsage();
+    const processTimeStart = process.hrtime.bigint();
 
     const [
       auditLogs,
@@ -90,7 +120,8 @@ exports.index = async (req, res) => {
       resumenAudit,
       resumenSystem,
       sesiones,
-      dbInfo
+      dbInfo,
+      dbStats
     ] = await Promise.all([
       tipo === 'sistema'
         ? Promise.resolve({ rows: [] })
@@ -130,21 +161,51 @@ exports.index = async (req, res) => {
         FROM system_logs
       `),
       pool.query('SELECT COUNT(*) as total FROM session WHERE expire > NOW()'),
-      pool.query('SELECT current_database() as database, version() as version')
+      pool.query('SELECT current_database() as database, version() as version'),
+      pool.query(`
+        SELECT
+          COUNT(*) as conexiones_total,
+          COUNT(*) FILTER (WHERE state = 'active') as conexiones_activas,
+          COUNT(*) FILTER (WHERE state = 'idle') as conexiones_idle,
+          pg_database_size(current_database()) as db_size_bytes
+        FROM pg_stat_activity
+        WHERE datname = current_database()
+      `)
     ]);
 
+    const cpuSistemaPorcentaje = cpuPercentBetween(cpuStart, cpuSnapshot());
+    const processCpuDelta = process.cpuUsage(processCpuStart);
+    const processElapsedSeconds = Number(process.hrtime.bigint() - processTimeStart) / 1e9;
+    const cpuProcessPercent = percent(
+      (processCpuDelta.user + processCpuDelta.system) / 1000000,
+      Math.max(processElapsedSeconds, 0.001) * Math.max(os.cpus().length, 1)
+    );
     const memoria = process.memoryUsage();
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = totalMem - freeMem;
+
     const diagnostico = {
       entorno: process.env.NODE_ENV || 'development',
       node: process.version,
+      pid: process.pid,
       plataforma: `${os.platform()} ${os.release()}`,
       host: os.hostname(),
       uptimeProceso: process.uptime(),
       uptimeSistema: os.uptime(),
       memoriaRssMb: memoria.rss / 1024 / 1024,
       memoriaHeapMb: memoria.heapUsed / 1024 / 1024,
+      memoriaHeapTotalMb: toMb(memoria.heapTotal),
+      memoriaExternalMb: toMb(memoria.external),
+      memoriaSistemaTotalMb: toMb(totalMem),
+      memoriaSistemaLibreMb: toMb(freeMem),
+      memoriaSistemaUsadaMb: toMb(usedMem),
+      memoriaSistemaPorcentaje: percent(usedMem, totalMem),
+      cpuProcesoPorcentaje: cpuProcessPercent,
+      cpuSistemaPorcentaje,
       cpuCount: os.cpus().length,
       db: dbInfo.rows[0],
+      dbStats: dbStats.rows[0] || {},
       sesionesActivas: Number(sesiones.rows[0]?.total || 0)
     };
 

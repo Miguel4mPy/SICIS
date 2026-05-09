@@ -196,7 +196,6 @@ CREATE TABLE IF NOT EXISTS lotes (
   presentacion_codigo VARCHAR(30) REFERENCES presentaciones_insecticida(codigo),
   fecha_fabricacion DATE,
   fecha_vencimiento DATE NOT NULL,
-  cantidad_inicial DECIMAL(12,3) NOT NULL,
   observaciones TEXT,
   activo BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -212,6 +211,7 @@ ALTER TABLE lotes ADD COLUMN IF NOT EXISTS presentacion_codigo VARCHAR(30);
 ALTER TABLE lotes DROP CONSTRAINT IF EXISTS lotes_presentacion_codigo_fkey;
 ALTER TABLE lotes ADD CONSTRAINT lotes_presentacion_codigo_fkey
   FOREIGN KEY (presentacion_codigo) REFERENCES presentaciones_insecticida(codigo);
+ALTER TABLE lotes DROP COLUMN IF EXISTS cantidad_inicial;
 
 -- ============================================================
 -- STOCK POR DEPOSITO Y LOTE

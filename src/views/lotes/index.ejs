@@ -38,7 +38,6 @@
             <th>Presentacion</th>
             <th>F. Fab.</th>
             <th>F. Venc.</th>
-            <th>Cant. Inicial</th>
             <th>Stock Total</th>
             <th>Estado Venc.</th>
             <th></th>
@@ -60,8 +59,7 @@
             <td><%= l.presentacion_nombre || l.presentacion_codigo || '-' %></td>
             <td><small><%= formatearFecha(l.fecha_fabricacion) %></small></td>
             <td><%= formatearFecha(l.fecha_vencimiento) %></td>
-            <td><%= parseFloat(l.cantidad_inicial).toFixed(2) %> <small><%= l.unidad_medida %></small></td>
-            <td><strong><%= parseFloat(l.stock_total || 0).toFixed(2) %></strong> <small><%= l.unidad_medida %></small></td>
+            <td><strong><%= formatearNumero(l.stock_total || 0, 3) %></strong> <small><%= l.unidad_medida %></small></td>
             <td><span class="badge bg-<%= l.estadoVenc.clase %>"><%= l.estadoVenc.texto %></span></td>
             <td>
               <% if (userRol === 'admin' || userRol === 'encargado_principal') { %>

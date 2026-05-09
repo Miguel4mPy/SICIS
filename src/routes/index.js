@@ -106,9 +106,14 @@ router.get('/movimientos/nuevo', requireAuth, movimientosCtrl.new);
 router.post('/movimientos', requireAuth, movimientosCtrl.create);
 router.get('/movimientos/confirmaciones', requireAuth, movimientosCtrl.confirmaciones);
 router.post('/movimientos/:id/confirmar', requireAuth, movimientosCtrl.confirmar);
+router.get('/movimientos/:id/editar', requireAuth, requireRole('admin', 'gerente'), movimientosCtrl.edit);
+router.post('/movimientos/:id', requireAuth, requireRole('admin', 'gerente'), movimientosCtrl.update);
 router.get('/movimientos/:id', requireAuth, movimientosCtrl.show);
 router.post('/movimientos/:id/anular', requireAuth, requireRole('admin', 'gerente'), movimientosCtrl.anular);
+router.get('/api/movimientos/opciones', requireAuth, movimientosCtrl.getOpcionesFormulario);
 router.get('/api/stock/:deposito_id', requireAuth, movimientosCtrl.getStockPorDeposito);
+router.get('/api/reportes/stock/depositos', requireAuth, reportesCtrl.stockFilterDepositos);
+router.get('/api/reportes/stock/insecticidas', requireAuth, reportesCtrl.stockFilterInsecticidas);
 
 // Reportes
 router.get('/reportes', requireAuth, reportesCtrl.index);

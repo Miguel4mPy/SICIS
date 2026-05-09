@@ -7,6 +7,11 @@
     <i class="bi bi-printer me-1"></i>Imprimir
   </button>
   <% if (movimiento.estado !== 'anulado' && (userRol === 'admin' || userRol === 'gerente')) { %>
+  <a href="/movimientos/<%= movimiento.id %>/editar" class="btn btn-outline-warning btn-sm">
+    <i class="bi bi-pencil-square me-1"></i>Editar
+  </a>
+  <% } %>
+  <% if (movimiento.estado !== 'anulado' && (userRol === 'admin' || userRol === 'gerente')) { %>
   <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#anularModal">
     <i class="bi bi-x-circle me-1"></i>Anular
   </button>
@@ -69,7 +74,7 @@
       <div class="col-md-4">
         <div class="detail-group">
           <div class="detail-label">Cantidad</div>
-          <div class="detail-value fs-4 fw-bold"><%= parseFloat(movimiento.cantidad).toFixed(3) %> <small class="text-muted fs-6"><%= movimiento.unidad_medida %></small></div>
+          <div class="detail-value fs-4 fw-bold"><%= formatearNumero(movimiento.cantidad, 3) %> <small class="text-muted fs-6"><%= movimiento.unidad_medida %></small></div>
         </div>
       </div>
       <div class="col-md-4">

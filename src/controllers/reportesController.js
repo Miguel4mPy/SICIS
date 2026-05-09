@@ -1,10 +1,10 @@
 const pool = require('../../config/database');
 const {
   formatearFecha,
+  formatearNumero,
   formatearCantidad,
   tipoMovimientoLabel,
-  tipoDepositoLabel,
-  getAnios
+  tipoDepositoLabel
 } = require('../utils/helpers');
 const { buildReportFile } = require('../utils/reportExport');
 
@@ -191,26 +191,105 @@ async function getStockReporte(query, userId, userRol) {
   return { rows: rows.rows, depositosPermitidos };
 }
 
-async function getStockGeneralReporte(userId, userRol) {
+async function getSelectedStockFilterOptions({ depositoId, insecticidaId }, userId, userRol) {
   const depositosPermitidos = await getDepositosPermitidos(userId, userRol);
   const depIds = depositosPermitidos.map(d => d.id);
-  const depIdsVisiblesSet = new Set(depositosPermitidos.filter(d => Number(d.nivel) < 3).map(d => Number(d.id)));
 
-  const padresNivel3Res = depIds.length
+  const selectedDeposito = depositoId && depIds.length
     ? await pool.query(`
-      SELECT DISTINCT dp.*
-      FROM depositos d
-      JOIN depositos dp ON dp.id = d.deposito_padre_id
-      WHERE d.id = ANY($1::int[])
-        AND d.nivel = 3
-        AND dp.activo = true
-    `, [depIds])
+        SELECT id, codigo, nombre, tipo, nivel
+        FROM depositos
+        WHERE id = $1 AND activo = true AND id = ANY($2::int[])
+        LIMIT 1
+      `, [depositoId, depIds])
     : { rows: [] };
 
-  const depositosReporte = [
-    ...depositosPermitidos.filter(d => Number(d.nivel) < 3),
-    ...padresNivel3Res.rows.filter(d => !depIdsVisiblesSet.has(Number(d.id)))
-  ].sort((a, b) => Number(a.nivel) - Number(b.nivel) || String(a.nombre).localeCompare(String(b.nombre)));
+  const selectedInsecticida = insecticidaId
+    ? await pool.query(`
+        SELECT id, codigo, nombre
+        FROM insecticidas
+        WHERE id = $1 AND activo = true
+        LIMIT 1
+      `, [insecticidaId])
+    : { rows: [] };
+
+  return {
+    deposito: selectedDeposito.rows[0] || null,
+    insecticida: selectedInsecticida.rows[0] || null
+  };
+}
+
+function ordenarDepositosJerarquia(depositos) {
+  const byParent = new Map();
+  const byId = new Map();
+
+  depositos.forEach(dep => {
+    const id = Number(dep.id);
+    const parentId = dep.deposito_padre_id ? Number(dep.deposito_padre_id) : null;
+    byId.set(id, dep);
+    if (!byParent.has(parentId)) byParent.set(parentId, []);
+    byParent.get(parentId).push(dep);
+  });
+
+  byParent.forEach(children => {
+    children.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)) || Number(a.id) - Number(b.id));
+  });
+
+  const ordered = [];
+  const visited = new Set();
+  const visit = (dep) => {
+    const id = Number(dep.id);
+    if (visited.has(id)) return;
+    visited.add(id);
+    ordered.push(dep);
+    (byParent.get(id) || []).forEach(visit);
+  };
+
+  (byParent.get(null) || []).forEach(visit);
+  depositos
+    .filter(dep => !visited.has(Number(dep.id)) && (!dep.deposito_padre_id || !byId.has(Number(dep.deposito_padre_id))))
+    .sort((a, b) => Number(a.nivel) - Number(b.nivel) || String(a.nombre).localeCompare(String(b.nombre)))
+    .forEach(visit);
+
+  return ordered;
+}
+
+async function getAncestrosDepositos(depositoIds) {
+  if (!depositoIds.length) return [];
+
+  const res = await pool.query(`
+    WITH RECURSIVE ancestros AS (
+      SELECT p.*
+      FROM depositos d
+      JOIN depositos p ON p.id = d.deposito_padre_id
+      WHERE d.id = ANY($1::int[])
+        AND p.activo = true
+      UNION
+      SELECT gp.*
+      FROM depositos p
+      JOIN depositos gp ON gp.id = p.deposito_padre_id
+      JOIN ancestros a ON a.id = p.id
+      WHERE gp.activo = true
+    )
+    SELECT DISTINCT * FROM ancestros
+  `, [depositoIds]);
+
+  return res.rows;
+}
+
+async function getStockGeneralReporte(userId, userRol, options = {}) {
+  const agruparNivel2 = Boolean(options.agruparNivel2);
+  const depositosPermitidos = await getDepositosPermitidos(userId, userRol);
+  const depIds = depositosPermitidos.map(d => d.id);
+  const ancestros = await getAncestrosDepositos(depIds);
+  const depositosById = new Map();
+  [...depositosPermitidos, ...ancestros].forEach(dep => {
+    depositosById.set(Number(dep.id), dep);
+  });
+
+  const depositosReporte = ordenarDepositosJerarquia(
+    [...depositosById.values()].filter(dep => !agruparNivel2 || Number(dep.nivel) < 3)
+  );
 
   const [lotesRes, stockRes] = await Promise.all([
     depIds.length
@@ -229,10 +308,12 @@ async function getStockGeneralReporte(userId, userRol) {
     depIds.length
       ? pool.query(`
         SELECT
-          CASE
-            WHEN d.nivel = 3 AND d.deposito_padre_id IS NOT NULL THEN d.deposito_padre_id
-            ELSE s.deposito_id
-          END as deposito_id,
+          ${agruparNivel2
+            ? `CASE
+                WHEN d.nivel = 3 AND d.deposito_padre_id IS NOT NULL THEN d.deposito_padre_id
+                ELSE s.deposito_id
+              END`
+            : 's.deposito_id'} as deposito_id,
           s.lote_id,
           SUM(s.cantidad) as cantidad
         FROM stock s
@@ -279,7 +360,7 @@ async function getStockGeneralReporte(userId, userRol) {
   });
 
   const totalGeneral = filas.reduce((sum, row) => sum + row.total, 0);
-  return { depositosReporte, lotes, insecticidaGrupos, filas, totalGeneral };
+  return { depositosReporte, lotes, insecticidaGrupos, filas, totalGeneral, agruparNivel2 };
 }
 
 async function getMovimientosPorSemanaInsecticida(query, userId, userRol) {
@@ -369,6 +450,48 @@ async function getMovimientosPorSemanaInsecticida(query, userId, userRol) {
       }
     }))
   };
+}
+
+async function getAniosGraficoDisponibles(depositosPermitidos, depositoId) {
+  const depIds = depositosPermitidos.map(d => d.id);
+  const movConditions = ["m.estado != 'anulado'"];
+  const stockConditions = ['s.cantidad > 0', 'l.activo IS TRUE', 'i.activo IS TRUE'];
+  const params = [];
+  let idx = 1;
+
+  if (depIds.length) {
+    movConditions.push(`(m.deposito_origen_id = ANY($${idx}::int[]) OR m.deposito_destino_id = ANY($${idx}::int[]))`);
+    stockConditions.push(`s.deposito_id = ANY($${idx}::int[])`);
+    params.push(depIds);
+    idx++;
+  }
+
+  if (depositoId) {
+    movConditions.push(`(m.deposito_origen_id = $${idx} OR m.deposito_destino_id = $${idx})`);
+    stockConditions.push(`s.deposito_id = $${idx}`);
+    params.push(depositoId);
+  }
+
+  const result = await pool.query(`
+    WITH anios AS (
+      SELECT DISTINCT m."año_epidemiologico"::int as anio
+      FROM movimientos m
+      WHERE ${movConditions.join(' AND ')}
+        AND m."año_epidemiologico" IS NOT NULL
+      UNION
+      SELECT DISTINCT EXTRACT(YEAR FROM s.updated_at)::int as anio
+      FROM stock s
+      JOIN lotes l ON l.id = s.lote_id
+      JOIN insecticidas i ON i.id = l.insecticida_id
+      WHERE ${stockConditions.join(' AND ')}
+        AND s.updated_at IS NOT NULL
+    )
+    SELECT anio
+    FROM anios
+    ORDER BY anio DESC
+  `, params);
+
+  return result.rows.map(row => Number(row.anio)).filter(Boolean);
 }
 
 exports.index = async (req, res) => {
@@ -479,6 +602,8 @@ exports.movimientos = async (req, res) => {
       insecticidas: insecticidas.rows,
       lotes: lotes.rows,
       formatearFecha,
+      formatearNumero,
+      formatearCantidad,
       tipoMovimientoLabel,
       tipoDepositoLabel,
       querystring: cleanQueryString(req.query),
@@ -523,7 +648,7 @@ exports.stock = async (req, res) => {
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const [rows, insecticidas] = await Promise.all([
+    const [rows, selectedOptions] = await Promise.all([
       pool.query(`
         SELECT d.codigo as deposito_codigo, d.nombre as deposito_nombre, d.tipo as deposito_tipo, d.nivel,
           i.nombre as insecticida_nombre, i.tipo_uso, l.unidad_medida,
@@ -535,15 +660,19 @@ exports.stock = async (req, res) => {
         ${where}
         ORDER BY d.nivel, d.nombre, i.nombre, l.fecha_vencimiento
       `, params),
-      pool.query('SELECT * FROM insecticidas WHERE activo = true ORDER BY nombre')
+      getSelectedStockFilterOptions({ depositoId: deposito_id, insecticidaId: insecticida_id }, req.session.userId, req.session.userRol)
     ]);
 
     res.render('reportes/stock', {
       title: 'Reporte de Stock',
       stock: rows.rows,
-      filtros: { deposito_id, tipo_deposito, insecticida_id, incluir_cero },
-      depositos: depositosPermitidos,
-      insecticidas: insecticidas.rows,
+      filtros: {
+        deposito_id,
+        tipo_deposito: tipo_deposito || selectedOptions.deposito?.tipo || '',
+        insecticida_id,
+        incluir_cero
+      },
+      selectedOptions,
       formatearFecha,
       formatearCantidad,
       tipoDepositoLabel,
@@ -560,9 +689,10 @@ exports.stock = async (req, res) => {
 
 exports.stockGeneral = async (req, res) => {
   const { formato } = req.query;
+  const agruparNivel2 = req.query.agrupar_nivel_2 === 'true';
 
   try {
-    const data = await getStockGeneralReporte(req.session.userId, req.session.userRol);
+    const data = await getStockGeneralReporte(req.session.userId, req.session.userRol, { agruparNivel2 });
 
     res.render('reportes/stock-general', {
       title: 'Reporte de Stock General',
@@ -571,7 +701,10 @@ exports.stockGeneral = async (req, res) => {
       insecticidaGrupos: data.insecticidaGrupos,
       filas: data.filas,
       totalGeneral: data.totalGeneral,
+      filtros: { agrupar_nivel_2: agruparNivel2 },
+      querystring: cleanQueryString(req.query),
       formatearFecha,
+      formatearNumero,
       print: formato === 'imprimir',
       layout: formato === 'imprimir' ? 'layouts/print' : 'layouts/main'
     });
@@ -582,12 +715,82 @@ exports.stockGeneral = async (req, res) => {
   }
 };
 
+exports.stockFilterDepositos = async (req, res) => {
+  try {
+    const { tipo_deposito, q = '' } = req.query;
+    if (!tipo_deposito) return res.json({ depositos: [] });
+
+    const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
+    const depIds = depositosPermitidos.map(d => d.id);
+    if (!depIds.length) return res.json({ depositos: [] });
+
+    const params = [depIds, tipo_deposito];
+    const conditions = ['d.activo = true', 'd.id = ANY($1::int[])', 'd.tipo = $2'];
+
+    if (q.trim()) {
+      params.push(`%${q.trim()}%`);
+      conditions.push(`(d.codigo ILIKE $${params.length} OR d.nombre ILIKE $${params.length})`);
+    }
+
+    const { rows } = await pool.query(`
+      SELECT d.id, d.codigo, d.nombre, d.tipo, d.nivel
+      FROM depositos d
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY d.nivel, d.nombre
+      LIMIT 80
+    `, params);
+
+    res.json({ depositos: rows });
+  } catch (err) {
+    console.error('Error cargando depositos para filtro de stock:', err);
+    res.status(500).json({ error: 'Error al cargar depositos.' });
+  }
+};
+
+exports.stockFilterInsecticidas = async (req, res) => {
+  try {
+    const { deposito_id, q = '' } = req.query;
+    if (!deposito_id) return res.json({ insecticidas: [] });
+
+    const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
+    const depIds = depositosPermitidos.map(d => Number(d.id));
+    const depositoId = Number(deposito_id);
+
+    if (!depIds.includes(depositoId)) return res.status(403).json({ error: 'Deposito no permitido.' });
+
+    const params = [depositoId];
+    const conditions = ['s.deposito_id = $1', 'i.activo = true', 'l.activo = true'];
+
+    if (q.trim()) {
+      params.push(`%${q.trim()}%`);
+      conditions.push(`(i.codigo ILIKE $${params.length} OR i.nombre ILIKE $${params.length})`);
+    }
+
+    const { rows } = await pool.query(`
+      SELECT DISTINCT i.id, i.codigo, i.nombre
+      FROM stock s
+      JOIN lotes l ON l.id = s.lote_id
+      JOIN insecticidas i ON i.id = l.insecticida_id
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY i.nombre
+      LIMIT 80
+    `, params);
+
+    res.json({ insecticidas: rows });
+  } catch (err) {
+    console.error('Error cargando insecticidas para filtro de stock:', err);
+    res.status(500).json({ error: 'Error al cargar insecticidas.' });
+  }
+};
+
 exports.grafico = async (req, res) => {
   const { tipo_grafico = 'movimientos_por_tipo', deposito_id, fecha_desde, fecha_hasta, anio, formato } = req.query;
 
   try {
     const depositosPermitidos = await getDepositosPermitidos(req.session.userId, req.session.userRol);
     const depIds = depositosPermitidos.map(d => d.id);
+    const aniosDisponibles = await getAniosGraficoDisponibles(depositosPermitidos, deposito_id);
+    const anioSeleccionado = aniosDisponibles.includes(Number(anio)) ? Number(anio) : (aniosDisponibles[0] || '');
     const params = [];
     const conditions = ["estado != 'anulado'"];
     let idx = 1;
@@ -610,6 +813,11 @@ exports.grafico = async (req, res) => {
     if (fecha_hasta) {
       conditions.push(`fecha_movimiento <= $${idx}`);
       params.push(fecha_hasta);
+      idx++;
+    }
+    if (anioSeleccionado) {
+      conditions.push(`"año_epidemiologico" = $${idx}`);
+      params.push(anioSeleccionado);
       idx++;
     }
 
@@ -679,7 +887,7 @@ exports.grafico = async (req, res) => {
           };
 
           return {
-            label: `${row.codigo_lote} | ${formatearCantidad(cantidad)} ${row.unidad_medida || ''} | Vto. ${row.fecha_vencimiento_label} | ${meta.estado_vencimiento}`,
+            label: `${row.codigo_lote} | ${formatearCantidad(cantidad, row.unidad_medida || '')} | Vto. ${row.fecha_vencimiento_label} | ${meta.estado_vencimiento}`,
             insecticida: row.insecticida_nombre,
             unidad: row.unidad_medida || 'Sin unidad',
             value: cantidad,
@@ -727,7 +935,11 @@ exports.grafico = async (req, res) => {
     }
 
     if (tipo_grafico === 'movimientos_por_semana') {
-      const semanal = await getMovimientosPorSemanaInsecticida(req.query, req.session.userId, req.session.userRol);
+      const semanal = await getMovimientosPorSemanaInsecticida(
+        { ...req.query, anio: anioSeleccionado || undefined },
+        req.session.userId,
+        req.session.userRol
+      );
       chartData = {
         labels: semanal.labels,
         chartType: 'movimientos_por_semana_por_unidad',
@@ -740,10 +952,10 @@ exports.grafico = async (req, res) => {
       title: 'Reportes Graficos',
       chartData,
       tipo_grafico,
-      filtros: { deposito_id, fecha_desde, fecha_hasta, anio },
+      filtros: { deposito_id, fecha_desde, fecha_hasta, anio: anioSeleccionado },
       depositos: depositosPermitidos,
-      anios: getAnios(),
-      querystring: cleanQueryString(req.query),
+      anios: aniosDisponibles,
+      querystring: cleanQueryString({ ...req.query, anio: anioSeleccionado || '' }),
       print: formato === 'imprimir',
       layout: formato === 'imprimir' ? 'layouts/print' : 'layouts/main'
     });
@@ -780,6 +992,11 @@ async function getGraficoExport(query, userId, userRol) {
   if (fecha_hasta) {
     conditions.push(`fecha_movimiento <= $${idx}`);
     params.push(fecha_hasta);
+    idx++;
+  }
+  if (anio) {
+    conditions.push(`"año_epidemiologico" = $${idx}`);
+    params.push(anio);
     idx++;
   }
 
@@ -822,7 +1039,7 @@ async function getGraficoExport(query, userId, userRol) {
         { key: 'unidad', header: 'Unidad' },
         { key: 'total', header: 'Total' }
       ],
-      rows: r.rows.map(row => ({ ...row, total: Number(row.total || 0).toFixed(3) }))
+      rows: r.rows.map(row => ({ ...row, total: formatearNumero(row.total, 3) }))
     };
   }
 
@@ -844,7 +1061,7 @@ async function getGraficoExport(query, userId, userRol) {
         anio: semanal.year,
         insecticida: row.insecticida_nombre,
         unidad: row.unidad_medida || '',
-        total: Number(row.total || 0).toFixed(3)
+        total: formatearNumero(row.total, 3)
       }))
     };
   }
@@ -919,7 +1136,7 @@ exports.exportar = async (req, res) => {
         codigo_lote: row.codigo_lote,
         origen_nombre: row.origen_nombre || '',
         destino_nombre: row.destino_nombre || '',
-        cantidad: Number(row.cantidad || 0).toFixed(3),
+        cantidad: formatearNumero(row.cantidad, 3),
         unidad_medida: row.unidad_medida || '',
         usuario_nombre: row.usuario_nombre || '',
         estado: row.estado
@@ -945,7 +1162,7 @@ exports.exportar = async (req, res) => {
         insecticida: row.insecticida_nombre,
         lote: row.codigo_lote,
         vencimiento: formatearFecha(row.fecha_vencimiento),
-        stock: Number(row.cantidad || 0).toFixed(3),
+        stock: formatearNumero(row.cantidad, 3),
         unidad: row.unidad_medida || '',
         actualizado: formatearFecha(row.updated_at)
       }));
@@ -953,7 +1170,9 @@ exports.exportar = async (req, res) => {
     }
 
     if (reporte === 'stock-general') {
-      const data = await getStockGeneralReporte(req.session.userId, req.session.userRol);
+      const data = await getStockGeneralReporte(req.session.userId, req.session.userRol, {
+        agruparNivel2: req.query.agrupar_nivel_2 === 'true'
+      });
       const lotesColumns = data.lotes.map((lote, index) => ({
         key: `lote_${index}`,
         header: `${lote.insecticida_nombre} - Lote ${lote.codigo_lote} - Vto. ${formatearFecha(lote.fecha_vencimiento)}`,
@@ -967,10 +1186,10 @@ exports.exportar = async (req, res) => {
       const exportRows = data.filas.map(row => {
         const out = {
           deposito: `N${row.deposito.nivel} - ${row.deposito.nombre}`,
-          total: row.total.toFixed(3)
+          total: formatearNumero(row.total, 3)
         };
         row.celdas.forEach((value, index) => {
-          out[`lote_${index}`] = value ? Number(value).toFixed(3) : '0.000';
+          out[`lote_${index}`] = value ? formatearNumero(value, 3) : formatearNumero(0, 3);
         });
         return out;
       });

@@ -96,30 +96,22 @@ async function seed() {
 
     // Lotes
     const lotes = [
-      { codigo: 'LOT-2024-001', ins_codigo: 'INS-FOC-001', vence: '2026-12-31', cant: 500 },
-      { codigo: 'LOT-2024-002', ins_codigo: 'INS-ESP-001', vence: '2026-06-30', cant: 300 },
-      { codigo: 'LOT-2024-003', ins_codigo: 'INS-ESP-002', vence: '2027-03-31', cant: 250 },
-      { codigo: 'LOT-2024-004', ins_codigo: 'INS-RES-001', vence: '2026-09-30', cant: 400 },
-      { codigo: 'LOT-2024-005', ins_codigo: 'INS-LAR-001', vence: '2026-12-31', cant: 1000 },
-      { codigo: 'LOT-2025-001', ins_codigo: 'INS-FOC-001', vence: '2027-06-30', cant: 600 },
-      { codigo: 'LOT-2025-002', ins_codigo: 'INS-ESP-001', vence: '2027-12-31', cant: 800 },
+      { codigo: 'LOT-2024-001', ins_codigo: 'INS-FOC-001', vence: '2026-12-31' },
+      { codigo: 'LOT-2024-002', ins_codigo: 'INS-ESP-001', vence: '2026-06-30' },
+      { codigo: 'LOT-2024-003', ins_codigo: 'INS-ESP-002', vence: '2027-03-31' },
+      { codigo: 'LOT-2024-004', ins_codigo: 'INS-RES-001', vence: '2026-09-30' },
+      { codigo: 'LOT-2024-005', ins_codigo: 'INS-LAR-001', vence: '2026-12-31' },
+      { codigo: 'LOT-2025-001', ins_codigo: 'INS-FOC-001', vence: '2027-06-30' },
+      { codigo: 'LOT-2025-002', ins_codigo: 'INS-ESP-001', vence: '2027-12-31' },
     ];
 
     for (const lote of lotes) {
       const insRes = await client.query('SELECT id FROM insecticidas WHERE codigo=$1', [lote.ins_codigo]);
       if (insRes.rows.length > 0) {
-        const loteRes = await client.query(`
-          INSERT INTO lotes (codigo_lote, insecticida_id, fecha_vencimiento, cantidad_inicial)
-          VALUES ($1, $2, $3, $4) ON CONFLICT (codigo_lote) DO NOTHING RETURNING id
-        `, [lote.codigo, insRes.rows[0].id, lote.vence, lote.cant]);
-
-        if (loteRes.rows[0]?.id) {
-          // Stock inicial en Oficina Central
-          await client.query(`
-            INSERT INTO stock (deposito_id, lote_id, cantidad)
-            VALUES ($1, $2, $3) ON CONFLICT (deposito_id, lote_id) DO UPDATE SET cantidad = $3
-          `, [centralId, loteRes.rows[0].id, lote.cant]);
-        }
+        await client.query(`
+          INSERT INTO lotes (codigo_lote, insecticida_id, fecha_vencimiento)
+          VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT lotes_insecticida_codigo_lote_key DO NOTHING
+        `, [lote.codigo, insRes.rows[0].id, lote.vence]);
       }
     }
 

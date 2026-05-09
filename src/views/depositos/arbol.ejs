@@ -61,6 +61,10 @@
         <button type="button" class="btn btn-sm btn-outline-primary" data-org-zoom-fit title="Ajustar">
           <i class="bi bi-arrows-fullscreen me-1"></i>Ajustar
         </button>
+        <button type="button" class="btn btn-sm btn-primary" data-org-fullscreen title="Ver en pantalla completa">
+          <i class="bi bi-fullscreen me-1" data-org-fullscreen-icon></i>
+          <span data-org-fullscreen-label>Pantalla completa</span>
+        </button>
       </div>
 
       <div class="org-chart-wrap" data-org-chart-wrap>
@@ -85,6 +89,10 @@
         const zoomIn = root?.querySelector('[data-org-zoom-in]');
         const zoomOut = root?.querySelector('[data-org-zoom-out]');
         const zoomFit = root?.querySelector('[data-org-zoom-fit]');
+        const fullscreenTarget = root?.closest('.card-sicis');
+        const fullscreenButton = root?.querySelector('[data-org-fullscreen]');
+        const fullscreenIcon = root?.querySelector('[data-org-fullscreen-icon]');
+        const fullscreenLabel = root?.querySelector('[data-org-fullscreen-label]');
         if (!wrap || !canvas || !chart) return;
 
         const minZoom = 0.1;
@@ -127,9 +135,58 @@
           applyZoom(Math.min(1, horizontal, vertical), true);
         }
 
+        function fullscreenElement() {
+          return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+        }
+
+        function isFullscreen() {
+          return fullscreenElement() === fullscreenTarget || fullscreenTarget?.classList.contains('org-chart-fullscreen-fallback');
+        }
+
+        function syncFullscreenState() {
+          const active = isFullscreen();
+          fullscreenTarget?.classList.toggle('org-chart-fullscreen', active);
+          fullscreenButton?.classList.toggle('btn-primary', !active);
+          fullscreenButton?.classList.toggle('btn-outline-primary', active);
+          fullscreenButton?.setAttribute('title', active ? 'Salir de pantalla completa' : 'Ver en pantalla completa');
+          fullscreenButton?.setAttribute('aria-pressed', String(active));
+          if (fullscreenIcon) fullscreenIcon.className = `bi ${active ? 'bi-fullscreen-exit' : 'bi-fullscreen'} me-1`;
+          if (fullscreenLabel) fullscreenLabel.textContent = active ? 'Salir' : 'Pantalla completa';
+          requestAnimationFrame(fitChart);
+        }
+
+        async function enterFullscreen() {
+          if (!fullscreenTarget) return;
+          try {
+            if (fullscreenTarget.requestFullscreen) await fullscreenTarget.requestFullscreen();
+            else if (fullscreenTarget.webkitRequestFullscreen) fullscreenTarget.webkitRequestFullscreen();
+            else if (fullscreenTarget.msRequestFullscreen) fullscreenTarget.msRequestFullscreen();
+            else fullscreenTarget.classList.add('org-chart-fullscreen-fallback');
+          } catch (err) {
+            fullscreenTarget.classList.add('org-chart-fullscreen-fallback');
+          }
+          syncFullscreenState();
+        }
+
+        async function exitFullscreen() {
+          fullscreenTarget?.classList.remove('org-chart-fullscreen-fallback');
+          try {
+            if (document.exitFullscreen && fullscreenElement()) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen && fullscreenElement()) document.webkitExitFullscreen();
+            else if (document.msExitFullscreen && fullscreenElement()) document.msExitFullscreen();
+          } catch (err) {
+            fullscreenTarget?.classList.remove('org-chart-fullscreen');
+          }
+          syncFullscreenState();
+        }
+
         zoomIn?.addEventListener('click', () => applyZoom(zoom + step, false));
         zoomOut?.addEventListener('click', () => applyZoom(zoom - step, false));
         zoomFit?.addEventListener('click', fitChart);
+        fullscreenButton?.addEventListener('click', () => {
+          if (isFullscreen()) exitFullscreen();
+          else enterFullscreen();
+        });
         wrap.addEventListener('wheel', (event) => {
           if (!event.ctrlKey) return;
           event.preventDefault();
@@ -137,6 +194,9 @@
           applyZoom(zoom + (direction * step), false);
         }, { passive: false });
         window.addEventListener('resize', fitChart, { passive: true });
+        document.addEventListener('fullscreenchange', syncFullscreenState);
+        document.addEventListener('webkitfullscreenchange', syncFullscreenState);
+        document.addEventListener('msfullscreenchange', syncFullscreenState);
 
         requestAnimationFrame(fitChart);
       })();

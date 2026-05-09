@@ -88,9 +88,14 @@
             <td><code><small><%= m.codigo_lote %></small></code></td>
             <td class="text-truncate" style="max-width:130px" title="<%= m.origen_nombre || '' %>"><%= m.origen_nombre || '—' %></td>
             <td class="text-truncate" style="max-width:130px" title="<%= m.destino_nombre || '' %>"><%= m.destino_nombre || '—' %></td>
-            <td><strong><%= parseFloat(m.cantidad).toFixed(2) %></strong> <small class="text-muted"><%= m.unidad_medida %></small></td>
+            <td><strong><%= formatearNumero(m.cantidad, 3) %></strong> <small class="text-muted"><%= m.unidad_medida %></small></td>
             <td><span class="badge bg-<%= m.estado === 'confirmado' ? 'success' : m.estado === 'anulado' ? 'danger' : 'warning' %>"><%= m.estado %></span></td>
-            <td><a href="/movimientos/<%= m.id %>" class="btn btn-xs btn-outline-primary"><i class="bi bi-eye"></i></a></td>
+            <td class="text-nowrap">
+              <a href="/movimientos/<%= m.id %>" class="btn btn-xs btn-outline-primary"><i class="bi bi-eye"></i></a>
+              <% if (m.estado !== 'anulado' && (userRol === 'admin' || userRol === 'gerente')) { %>
+              <a href="/movimientos/<%= m.id %>/editar" class="btn btn-xs btn-outline-warning"><i class="bi bi-pencil-square"></i></a>
+              <% } %>
+            </td>
           </tr>
         <% } %>
         </tbody>

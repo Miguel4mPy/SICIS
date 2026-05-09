@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
+const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const flash = require('./middleware/flash');
 const methodOverride = require('method-override');
@@ -9,7 +10,7 @@ const path = require('path');
 const pool = require('../config/database');
 const { loadUser } = require('./middleware/auth');
 const csrfProtection = require('./middleware/csrf');
-const { formatearFecha, formatearCantidad, tipoMovimientoLabel, tipoDepositoLabel, estadoVencimiento } = require('./utils/helpers');
+const { formatearFecha, formatearNumero, formatearCantidad, tipoMovimientoLabel, tipoDepositoLabel, estadoVencimiento } = require('./utils/helpers');
 const { logSystemEvent } = require('./utils/systemLogger');
 const moment = require('moment');
 
@@ -40,6 +41,8 @@ const app = express();
 const PORT = parsePort(process.env.PORT || '3000');
 const HOST = (process.env.HOST || '0.0.0.0').trim();
 const SESSION_IDLE_MINUTES = parseInt(process.env.SESSION_IDLE_MINUTES, 10) || 15;
+const GLOBAL_RATE_WINDOW_MINUTES = parseInt(process.env.GLOBAL_RATE_WINDOW_MINUTES, 10) || 1;
+const GLOBAL_RATE_LIMIT_MAX = parseInt(process.env.GLOBAL_RATE_LIMIT_MAX, 10) || 300;
 const appUrl = parseAppUrl(process.env.APP_URL, PORT);
 
 const isLocalAppUrl = ['localhost', '127.0.0.1', '::1'].includes(appUrl.hostname);
@@ -114,6 +117,14 @@ app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/images/favicon.ico'));
 });
 
+app.use(rateLimit({
+  windowMs: GLOBAL_RATE_WINDOW_MINUTES * 60 * 1000,
+  limit: GLOBAL_RATE_LIMIT_MAX,
+  message: 'Demasiadas solicitudes desde esta IP. Intente nuevamente en unos minutos.',
+  standardHeaders: true,
+  legacyHeaders: false
+}));
+
 // Body parsing
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.json({ limit: '10mb' }));
@@ -155,6 +166,7 @@ app.use((req, res, next) => {
   res.locals.currentPath = req.path;
   res.locals.moment = moment;
   res.locals.formatearFecha = formatearFecha;
+  res.locals.formatearNumero = formatearNumero;
   res.locals.formatearCantidad = formatearCantidad;
   res.locals.tipoMovimientoLabel = tipoMovimientoLabel;
   res.locals.tipoDepositoLabel = tipoDepositoLabel;

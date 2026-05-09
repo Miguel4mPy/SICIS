@@ -181,7 +181,7 @@
             <td><code class="small"><%= m.codigo_lote %></code></td>
             <td class="small"><%= m.origen_nombre || '-' %></td>
             <td class="small"><%= m.destino_nombre || '-' %></td>
-            <td class="text-end fw-semibold"><%= parseFloat(m.cantidad).toFixed(2) %> <%= m.unidad_medida || '' %></td>
+            <td class="text-end fw-semibold"><%= formatearCantidad(m.cantidad, m.unidad_medida, 3) %></td>
             <td class="small"><%= m.usuario_nombre || '-' %></td>
             <td><span class="badge bg-<%= m.estado === 'confirmado' ? 'success' : 'warning' %>"><%= m.estado %></span></td>
           </tr>

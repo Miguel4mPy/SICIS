@@ -3,100 +3,89 @@
 <% } %>
 
 <div class="row justify-content-center">
-<div class="col-xl-9">
-<div class="card-sicis">
-  <div class="card-sicis-header"><i class="bi bi-arrow-left-right me-2"></i>Datos del Movimiento</div>
+<div class="col-xl-10">
+<div class="card-sicis movement-form-card">
+  <div class="card-sicis-header">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-arrow-left-right"></i>
+      <span><%= movimiento && movimiento.id ? 'Editar Movimiento' : 'Datos del Movimiento' %></span>
+    </div>
+    <span class="badge text-bg-light border ms-auto">Carga asistida</span>
+  </div>
   <div class="card-sicis-body">
-    <form method="POST" action="/movimientos" id="movForm">
+    <form method="POST" action="<%= movimiento && movimiento.id ? `/movimientos/${movimiento.id}` : '/movimientos' %>" id="movForm" autocomplete="off" novalidate data-opciones-url="/api/movimientos/opciones" data-initial='<%- safeJson(movimiento || {}) %>'>
       <div class="row g-3">
-
-        <!-- Categoria y tipo de movimiento -->
-        <div class="col-md-6">
-          <label class="form-label required">Categoria</label>
-          <select name="categoria" class="form-select" required id="categoriaSelect">
-            <option value="">Seleccionar...</option>
-            <% for (const c of (categorias || [])) { %>
-            <option value="<%= c.value %>"><%= c.label %></option>
-            <% } %>
-          </select>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label required">Tipo de Movimiento</label>
-          <select name="tipo_movimiento" class="form-select" required id="tipoMovimientoSelect">
-            <option value="">Seleccionar...</option>
-            <% for (const t of (tiposMovimiento || [])) { %>
-            <option value="<%= t.value %>" data-requiere-uso="<%= t.requiere_tipo_uso ? 'true' : 'false' %>"><%= t.label || tipoMovimientoLabel(t.value) %></option>
-            <% } %>
+        <div class="col-lg-4 col-md-6">
+          <label class="form-label required" for="categoriaSelect">Categoria</label>
+          <select name="categoria" class="form-select" required id="categoriaSelect" autocomplete="off">
+            <option value="">Seleccionar categoria...</option>
           </select>
         </div>
 
-        <!-- Insecticida y Lote -->
-        <div class="col-md-6">
-          <label class="form-label required">Insecticida</label>
-          <select name="insecticida_id_filtro" class="form-select" id="insectSelect">
-            <option value="">Seleccionar insecticida...</option>
-            <% for (const i of insecticidas) { %>
-            <% const usos = Array.isArray(i.tipo_usos) && i.tipo_usos.length ? i.tipo_usos : [i.tipo_uso]; %>
-            <option value="<%= i.id %>" data-usos="<%= usos.join(',') %>"><%= i.nombre %> (<%= usos.join(', ') %>)</option>
-            <% } %>
+        <div class="col-lg-4 col-md-6" id="tipoMovimientoWrap">
+          <label class="form-label required" for="tipoMovimientoSelect">Tipo de Movimiento</label>
+          <select name="tipo_movimiento" class="form-select" required id="tipoMovimientoSelect" autocomplete="off">
+            <option value="">Seleccionar tipo...</option>
           </select>
         </div>
-        <div class="col-md-6">
-          <label class="form-label required">Lote</label>
-          <select name="lote_id" class="form-select" id="loteSelect" required>
+
+        <div class="col-lg-4 col-md-6">
+          <label class="form-label required" for="insectSelect">Insecticida</label>
+          <select name="insecticida_id_filtro" class="form-select" id="insectSelect" autocomplete="off" data-remote-search="true">
+            <option value="">Escriba para buscar insecticida...</option>
+          </select>
+        </div>
+
+        <div class="col-lg-6">
+          <label class="form-label required" for="loteSelect">Lote</label>
+          <select name="lote_id" class="form-select" id="loteSelect" required autocomplete="off" data-remote-search="true">
             <option value="">Seleccione primero un insecticida...</option>
           </select>
           <div id="loteInfo" class="form-text"></div>
         </div>
 
-        <!-- Deposito Origen -->
-        <div class="col-md-6" id="origenWrap">
-          <label class="form-label" id="origenLabel">Deposito Origen</label>
-          <select name="deposito_origen_id" class="form-select" id="origenSelect">
-            <option value="">Seleccionar...</option>
-            <% for (const d of depositos) { %>
-            <option value="<%= d.id %>" data-nivel="<%= d.nivel %>"><%= d.nombre %> (Nivel <%= d.nivel %>)</option>
-            <% } %>
-          </select>
-          <div id="stockDisponible" class="form-text text-success fw-bold"></div>
-        </div>
-
-        <!-- Deposito Destino -->
-        <div class="col-md-6" id="destinoWrap">
-          <label class="form-label" id="destinoLabel">Deposito Destino</label>
-          <select name="deposito_destino_id" class="form-select" id="destinoSelect">
-            <option value="">Seleccionar...</option>
-            <% for (const d of depositos) { %>
-            <option value="<%= d.id %>" data-nivel="<%= d.nivel %>"><%= d.nombre %> (Nivel <%= d.nivel %>)</option>
-            <% } %>
+        <div class="col-lg-6" id="origenWrap">
+          <label class="form-label" id="origenLabel" for="origenSelect">Deposito Origen</label>
+          <select name="deposito_origen_id" class="form-select" id="origenSelect" autocomplete="off">
+            <option value="">Seleccionar deposito...</option>
           </select>
         </div>
 
-        <!-- Cantidad y fecha -->
-        <div class="col-md-4">
-          <label class="form-label required">Cantidad</label>
+        <div class="col-lg-6">
+          <label class="form-label required" for="cantidadInput">Cantidad</label>
           <div class="input-group">
-            <input type="number" name="cantidad" class="form-control" required min="0.001" step="0.001" placeholder="0.000">
+            <input type="text" name="cantidad" id="cantidadInput" class="form-control" required placeholder="0,000" autocomplete="off" inputmode="decimal">
             <span class="input-group-text" id="unidadLabel">-</span>
           </div>
+          <div id="stockDisponible" class="form-text fw-bold"></div>
         </div>
-        <div class="col-md-4">
-          <label class="form-label required">Fecha del Movimiento</label>
-          <input type="date" name="fecha_movimiento" class="form-control" required value="<%= new Date().toISOString().split('T')[0] %>">
+
+        <div class="col-lg-6" id="destinoWrap">
+          <label class="form-label" id="destinoLabel" for="destinoSelect">Deposito Destino</label>
+          <select name="deposito_destino_id" class="form-select" id="destinoSelect" autocomplete="off">
+            <option value="">Seleccionar deposito...</option>
+          </select>
         </div>
+
         <div class="col-md-4">
-          <label class="form-label">Descripcion</label>
-          <input type="text" name="descripcion" class="form-control" placeholder="Ej: Operativo zona norte">
+          <label class="form-label required" for="fechaMovimientoInput">Fecha del Movimiento</label>
+          <input type="date" name="fecha_movimiento" id="fechaMovimientoInput" class="form-control" required value="<%= movimiento && movimiento.fecha_movimiento ? new Date(movimiento.fecha_movimiento).toISOString().split('T')[0] : new Date().toISOString().split('T')[0] %>" autocomplete="off">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label" for="descripcionInput">Descripcion</label>
+          <input type="text" name="descripcion" id="descripcionInput" class="form-control" placeholder="Ej: Operativo zona norte" autocomplete="off" maxlength="255" value="<%= movimiento && movimiento.descripcion ? movimiento.descripcion : '' %>">
         </div>
         <div class="col-12">
-          <label class="form-label">Observaciones</label>
-          <textarea name="observaciones" class="form-control" rows="2" placeholder="Observaciones adicionales..."></textarea>
+          <label class="form-label" for="observacionesInput">Observaciones</label>
+          <textarea name="observaciones" id="observacionesInput" class="form-control" rows="2" placeholder="Observaciones adicionales..." autocomplete="off"><%= movimiento && movimiento.observaciones ? movimiento.observaciones : '' %></textarea>
         </div>
       </div>
 
-      <div class="d-flex gap-2 mt-4">
-        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar Movimiento</button>
-        <a href="/movimientos" class="btn btn-outline-secondary">Cancelar</a>
+      <div class="alert alert-warning d-none mt-3 mb-0" id="movimientoFrontendAlert" role="alert"></div>
+
+      <div class="d-flex flex-wrap gap-2 mt-4">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i><%= movimiento && movimiento.id ? 'Guardar Cambios' : 'Registrar Movimiento' %></button>
+        <a href="/movimientos" class="btn btn-outline-secondary"><i class="bi bi-x-lg me-1"></i>Cancelar</a>
       </div>
     </form>
   </div>
@@ -105,122 +94,308 @@
 </div>
 
 <script>
-// Datos lotes para filtrado
-window.movimientoLotesData = <%- safeJson(lotes.map(l => ({ id: l.id, insecticida_id: l.insecticida_id, codigo_lote: l.codigo_lote, fecha_vencimiento: l.fecha_vencimiento, unidad_medida: l.unidad_medida }))) %>;
-window.movimientoUsuarioRol = <%- safeJson(rolUsuario || '') %>;
+(() => {
+  const form = document.getElementById('movForm');
+  if (!form) return;
 
-function filtrarInsecticidasPorTipo() {
-  const tipoSelect = document.getElementById('tipoMovimientoSelect');
-  const tipo = tipoSelect.value;
-  const requiereUso = tipoSelect.selectedOptions[0]?.dataset.requiereUso === 'true';
-  const insectSelect = document.getElementById('insectSelect');
-  Array.from(insectSelect.options).forEach(opt => {
-    if (!opt.value) return;
-    const usos = (opt.dataset.usos || '').split(',');
-    opt.hidden = Boolean(requiereUso && tipo && !usos.includes(tipo));
-  });
-  if (insectSelect.selectedOptions[0]?.hidden) {
-    insectSelect.value = '';
-    filtrarLotes();
-  }
-}
-
-function filtrarLotes() {
-  const insId = document.getElementById('insectSelect').value;
-  const sel = document.getElementById('loteSelect');
-  const loteInfo = document.getElementById('loteInfo');
+  const selects = {
+    categoria: document.getElementById('categoriaSelect'),
+    tipo: document.getElementById('tipoMovimientoSelect'),
+    insecticida: document.getElementById('insectSelect'),
+    lote: document.getElementById('loteSelect'),
+    origen: document.getElementById('origenSelect'),
+    destino: document.getElementById('destinoSelect')
+  };
+  const cantidadInput = document.getElementById('cantidadInput');
   const unidadLabel = document.getElementById('unidadLabel');
-  sel.innerHTML = '<option value="">Seleccionar lote...</option>';
-  document.getElementById('stockDisponible').textContent = '';
-  if (loteInfo) loteInfo.textContent = '';
-  if (unidadLabel) unidadLabel.textContent = '-';
+  const loteInfo = document.getElementById('loteInfo');
+  const stockDisponible = document.getElementById('stockDisponible');
+  const alertBox = document.getElementById('movimientoFrontendAlert');
+  const tipoMovimientoWrap = document.getElementById('tipoMovimientoWrap');
+  const tipoMovimientoHidden = document.createElement('input');
+  tipoMovimientoHidden.type = 'hidden';
+  tipoMovimientoHidden.name = 'tipo_movimiento';
+  tipoMovimientoHidden.disabled = true;
+  form.appendChild(tipoMovimientoHidden);
+  const initial = (() => {
+    try {
+      return JSON.parse(form.dataset.initial || '{}');
+    } catch (err) {
+      return {};
+    }
+  })();
 
-  if (!insId) {
-    sel.innerHTML = '<option value="">Seleccione primero un insecticida...</option>';
-    return;
+  const state = {
+    reglas: {},
+    lotes: [],
+    loading: false,
+    searchTimer: null,
+    abortController: null
+  };
+
+  function showClientAlert(message) {
+    alertBox.textContent = message || '';
+    alertBox.classList.toggle('d-none', !message);
   }
 
-  const lotesData = window.movimientoLotesData || [];
-  const filtrados = lotesData.filter(l => l.insecticida_id == insId);
-  if (!filtrados.length) {
-    sel.innerHTML = '<option value="">Sin lotes vigentes para este insecticida</option>';
-    return;
+  function parseNumeroPy(value) {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) return NaN;
+    return Number(rawValue.replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
   }
 
-  filtrados.forEach(l => {
-    const opt = document.createElement('option');
-    opt.value = l.id;
-    opt.dataset.vence = l.fecha_vencimiento;
-    opt.dataset.unidad = l.unidad_medida;
-    opt.textContent = `${l.codigo_lote} - Vence: ${new Date(l.fecha_vencimiento).toLocaleDateString('es-PY')}`;
-    sel.appendChild(opt);
-  });
-}
+  function formatNumeroPy(value, fractionDigits = 3) {
+    return Number(value || 0).toLocaleString('es-PY', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits
+    });
+  }
 
-function onLoteChange() {
-  const sel = document.getElementById('loteSelect');
-  const opt = sel.options[sel.selectedIndex];
-  if (opt && opt.value) {
-    const vence = opt.dataset.vence;
-    const unidad = opt.dataset.unidad || '';
-    document.getElementById('unidadLabel').textContent = unidad;
+  function setSelectOptions(select, items, placeholder, mapItem, selectedValue) {
+    const currentValue = selectedValue !== undefined ? String(selectedValue || '') : String(select.value || '');
+    select.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = placeholder;
+    select.appendChild(first);
+
+    items.forEach(item => {
+      const mapped = mapItem(item);
+      const option = document.createElement('option');
+      option.value = mapped.value;
+      option.textContent = mapped.label;
+      Object.entries(mapped.dataset || {}).forEach(([key, value]) => {
+        option.dataset[key] = value;
+      });
+      select.appendChild(option);
+    });
+
+    if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
+      select.value = currentValue;
+    }
+    if (window.sicisUpdateComboSelect) window.sicisUpdateComboSelect(select);
+  }
+
+  function paramsForOptions(query = '') {
+    const params = new URLSearchParams();
+    const categoriaValue = selects.categoria.value || initial.categoria || '';
+    const tipoValue = selects.tipo.value || initial.tipo_movimiento || '';
+    const insecticidaValue = selects.insecticida.value || initial.insecticida_id || '';
+    const origenValue = selects.origen.value || initial.deposito_origen_id || '';
+    if (categoriaValue) params.set('categoria', categoriaValue);
+    if (tipoValue && !['entrada', 'transferencia', 'ajuste'].includes(categoriaValue)) {
+      params.set('tipo_movimiento', tipoValue);
+    }
+    if (insecticidaValue) params.set('insecticida_id', insecticidaValue);
+    if (origenValue) params.set('deposito_origen_id', origenValue);
+    if (query) params.set('q', query);
+    return params;
+  }
+
+  async function cargarOpciones({ query = '', mantenerLote = false } = {}) {
+    state.abortController?.abort();
+    state.abortController = new AbortController();
+    state.loading = true;
+    showClientAlert('');
+
+    try {
+      const url = `${form.dataset.opcionesUrl}?${paramsForOptions(query).toString()}`;
+      const response = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        signal: state.abortController.signal
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudieron cargar las opciones.');
+
+      state.reglas = data.reglas || {};
+      state.lotes = data.lotes || [];
+
+      setSelectOptions(selects.categoria, data.categorias || [], 'Seleccionar categoria...', categoria => ({
+        value: categoria.value,
+        label: categoria.label
+      }), initial.categoria);
+      setSelectOptions(selects.tipo, data.tiposMovimiento || [], 'Seleccionar tipo...', tipo => ({
+        value: tipo.value,
+        label: tipo.label,
+        dataset: { requiereUso: tipo.requiere_tipo_uso ? 'true' : 'false' }
+      }), initial.tipo_movimiento);
+      setSelectOptions(selects.origen, data.depositosOrigen || [], 'Seleccionar deposito...', dep => ({
+        value: String(dep.id),
+        label: `${dep.nombre} (Nivel ${dep.nivel})`,
+        dataset: { nivel: String(dep.nivel) }
+      }), initial.deposito_origen_id);
+      setSelectOptions(selects.destino, data.depositosDestino || [], 'Seleccionar deposito...', dep => ({
+        value: String(dep.id),
+        label: `${dep.nombre} (Nivel ${dep.nivel})`,
+        dataset: { nivel: String(dep.nivel) }
+      }), initial.deposito_destino_id);
+      setSelectOptions(selects.insecticida, data.insecticidas || [], 'Escriba para buscar insecticida...', ins => ({
+        value: String(ins.id),
+        label: `${ins.nombre}${ins.tipo_usos?.length ? ` (${ins.tipo_usos.join(', ')})` : ''}`,
+        dataset: { usos: (ins.tipo_usos || []).join(',') }
+      }), initial.insecticida_id);
+      setSelectOptions(selects.lote, state.lotes, selects.insecticida.value ? 'Seleccionar lote...' : 'Seleccione primero un insecticida...', lote => ({
+        value: String(lote.id),
+        label: `${lote.codigo_lote} - Vence: ${new Date(lote.fecha_vencimiento).toLocaleDateString('es-PY')}`,
+        dataset: {
+          vence: lote.fecha_vencimiento,
+          unidad: lote.unidad_medida,
+          stock: lote.stock_origen
+        }
+      }), mantenerLote ? selects.lote.value : initial.lote_id);
+
+      aplicarReglasFormulario();
+      actualizarDetalleLote();
+      if (initial.cantidad) {
+        cantidadInput.value = formatNumeroPy(initial.cantidad);
+        delete initial.cantidad;
+      }
+      delete initial.categoria;
+      delete initial.tipo_movimiento;
+      delete initial.insecticida_id;
+      delete initial.deposito_origen_id;
+      delete initial.deposito_destino_id;
+      delete initial.lote_id;
+    } catch (err) {
+      if (err.name !== 'AbortError') showClientAlert(err.message || 'No se pudieron cargar las opciones del formulario.');
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  function aplicarReglasFormulario() {
+    const reglas = state.reglas || {};
+    const origenWrap = document.getElementById('origenWrap');
+    const destinoWrap = document.getElementById('destinoWrap');
+
+    origenWrap.classList.toggle('d-none', !reglas.requiereOrigen);
+    destinoWrap.classList.toggle('d-none', !reglas.requiereDestino);
+    selects.origen.required = Boolean(reglas.requiereOrigen);
+    selects.destino.required = Boolean(reglas.requiereDestino);
+
+    if (!reglas.requiereOrigen) selects.origen.value = '';
+    if (!reglas.requiereDestino) selects.destino.value = '';
+
+    if (reglas.tipoBloqueado && reglas.tipoForzado) {
+      selects.tipo.value = reglas.tipoForzado;
+      selects.tipo.disabled = true;
+      selects.tipo.required = false;
+      selects.tipo.name = '';
+      tipoMovimientoHidden.value = reglas.tipoForzado;
+      tipoMovimientoHidden.disabled = false;
+      tipoMovimientoWrap.classList.add('d-none');
+    } else {
+      selects.tipo.disabled = false;
+      selects.tipo.required = true;
+      selects.tipo.name = 'tipo_movimiento';
+      tipoMovimientoHidden.value = '';
+      tipoMovimientoHidden.disabled = true;
+      tipoMovimientoWrap.classList.remove('d-none');
+    }
+
+    if (window.sicisUpdateComboSelect) {
+      window.sicisUpdateComboSelect(selects.tipo);
+      window.sicisUpdateComboSelect(selects.origen);
+      window.sicisUpdateComboSelect(selects.destino);
+    }
+  }
+
+  function actualizarDetalleLote() {
+    const option = selects.lote.selectedOptions[0];
+    if (!option || !option.value) {
+      unidadLabel.textContent = '-';
+      loteInfo.textContent = '';
+      stockDisponible.textContent = '';
+      stockDisponible.className = 'form-text fw-bold';
+      delete cantidadInput.dataset.max;
+      return;
+    }
+
+    const vence = option.dataset.vence;
+    const unidad = option.dataset.unidad || '';
+    const stock = Number(option.dataset.stock || 0);
+    unidadLabel.textContent = unidad || '-';
+
     const dias = Math.floor((new Date(vence) - new Date()) / 86400000);
-    document.getElementById('loteInfo').textContent = `Vencimiento: ${new Date(vence).toLocaleDateString('es-PY')} (${dias} dias)`;
-    document.getElementById('loteInfo').className = `form-text ${dias < 30 ? 'text-danger' : dias < 90 ? 'text-warning' : 'text-success'}`;
+    loteInfo.textContent = `Vencimiento: ${new Date(vence).toLocaleDateString('es-PY')} (${dias} dias)`;
+    loteInfo.className = `form-text ${dias < 30 ? 'text-danger' : dias < 90 ? 'text-warning' : 'text-success'}`;
+
+    if (state.reglas.requiereOrigen) {
+      stockDisponible.textContent = stock > 0
+        ? `Stock disponible: ${formatNumeroPy(stock)} ${unidad}`
+        : 'Sin stock para este lote en el deposito de origen seleccionado';
+      stockDisponible.className = `form-text fw-bold ${stock > 0 ? 'text-success' : 'text-danger'}`;
+      if (stock > 0) cantidadInput.dataset.max = String(stock);
+    } else {
+      stockDisponible.textContent = '';
+      stockDisponible.className = 'form-text fw-bold';
+      delete cantidadInput.dataset.max;
+    }
   }
-  cargarStockDisponible();
-}
 
-async function cargarStockDisponible() {
-  const depId = document.getElementById('origenSelect').value;
-  const loteId = document.getElementById('loteSelect').value;
-  const div = document.getElementById('stockDisponible');
-  if (!depId || !loteId) { div.textContent = ''; return; }
+  function validarAntesDeEnviar(event) {
+    const errores = [];
+    const reglas = state.reglas || {};
+    const cantidad = parseNumeroPy(cantidadInput.value);
 
-  const r = await fetch(`/api/stock/${depId}?insecticida_id=${document.getElementById('insectSelect').value || 0}`);
-  const data = await r.json();
-  const lote = data.find(x => x.lote_id == loteId);
-  div.textContent = lote ? `Stock disponible: ${parseFloat(lote.cantidad).toFixed(3)} ${lote.unidad_medida}` : 'Sin stock para este lote en el deposito seleccionado';
-  div.className = `form-text fw-bold ${lote ? 'text-success' : 'text-danger'}`;
-}
+    if (!selects.categoria.value) errores.push('Seleccione la categoria del movimiento.');
+    if (!state.reglas.tipoBloqueado && !selects.tipo.value) errores.push('Seleccione el tipo de movimiento.');
+    if (!selects.insecticida.value) errores.push('Seleccione un insecticida.');
+    if (!selects.lote.value) errores.push('Seleccione un lote vigente.');
+    if (!cantidad || Number.isNaN(cantidad) || cantidad <= 0) errores.push('La cantidad debe ser mayor a cero.');
+    if (reglas.requiereOrigen && !selects.origen.value) errores.push('Seleccione el deposito de origen.');
+    if (reglas.requiereDestino && !selects.destino.value) errores.push('Seleccione el deposito de destino.');
+    if (selects.categoria.value === 'transferencia' && selects.origen.value === selects.destino.value) {
+      errores.push('El deposito de origen y destino no pueden ser el mismo.');
+    }
 
-function onCategoriaChange() {
-  const cat = document.getElementById('categoriaSelect').value;
-  const ow = document.getElementById('origenWrap');
-  const dw = document.getElementById('destinoWrap');
-  const os = document.getElementById('origenSelect');
-  const ds = document.getElementById('destinoSelect');
-  const limitarDestinoNivel1 = window.movimientoUsuarioRol === 'encargado_principal' && cat === 'entrada';
+    const loteOption = selects.lote.selectedOptions[0];
+    if (reglas.requiereOrigen && loteOption?.dataset.stock && cantidad > Number(loteOption.dataset.stock)) {
+      errores.push('La cantidad supera el stock disponible para el lote y deposito seleccionados.');
+    }
 
-  Array.from(ds.options).forEach(opt => {
-    if (!opt.value) return;
-    opt.hidden = limitarDestinoNivel1 && opt.dataset.nivel !== '1';
+    if (errores.length) {
+      event.preventDefault();
+      showClientAlert(errores[0]);
+      return false;
+    }
+
+    showClientAlert('');
+    return true;
+  }
+
+  window.onCategoriaChange = () => cargarOpciones({ mantenerLote: false });
+  window.filtrarInsecticidasPorTipo = () => cargarOpciones({ mantenerLote: false });
+  window.filtrarLotes = () => cargarOpciones({ mantenerLote: false });
+  window.onLoteChange = actualizarDetalleLote;
+  window.cargarStockDisponible = () => cargarOpciones({ mantenerLote: true });
+
+  form.addEventListener('sicis:combo-search', event => {
+    if (!['insectSelect', 'loteSelect'].includes(event.detail?.select?.id)) return;
+    clearTimeout(state.searchTimer);
+    state.searchTimer = setTimeout(() => cargarOpciones({
+      query: event.detail.query || '',
+      mantenerLote: event.detail.select.id === 'loteSelect'
+    }), 250);
   });
-  if (limitarDestinoNivel1 && ds.selectedOptions[0]?.hidden) {
-    ds.value = '';
-  }
 
-  if (cat === 'entrada') {
-    ow.style.display = 'none'; os.required = false;
-    dw.style.display = ''; ds.required = true;
-  } else if (cat === 'salida') {
-    ow.style.display = ''; os.required = true;
-    dw.style.display = 'none'; ds.required = false;
-  } else if (cat === 'transferencia') {
-    ow.style.display = ''; os.required = true;
-    dw.style.display = ''; ds.required = true;
-  } else if (cat === 'ajuste') {
-    ow.style.display = 'none'; os.required = false; os.value = '';
-    dw.style.display = ''; ds.required = true;
-  } else {
-    ow.style.display = ''; os.required = false;
-    dw.style.display = ''; ds.required = false;
-  }
+  selects.categoria.addEventListener('change', () => cargarOpciones({ mantenerLote: false }));
+  selects.tipo.addEventListener('change', () => cargarOpciones({ mantenerLote: false }));
+  selects.insecticida.addEventListener('change', () => cargarOpciones({ mantenerLote: false }));
+  selects.origen.addEventListener('change', () => cargarOpciones({ mantenerLote: true }));
+  selects.lote.addEventListener('change', actualizarDetalleLote);
+  cantidadInput.addEventListener('input', () => {
+    cantidadInput.value = cantidadInput.value.replace(/[^\d.,\s]/g, '');
+  });
+  cantidadInput.addEventListener('blur', () => {
+    const cantidad = parseNumeroPy(cantidadInput.value);
+    if (!Number.isNaN(cantidad) && cantidad > 0) {
+      cantidadInput.value = formatNumeroPy(cantidad);
+    }
+  });
+  form.addEventListener('submit', validarAntesDeEnviar);
 
-  if (window.sicisUpdateComboSelect) window.sicisUpdateComboSelect(ds);
-}
-
-onCategoriaChange();
-filtrarInsecticidasPorTipo();
-filtrarLotes();
+  cargarOpciones();
+})();
 </script>

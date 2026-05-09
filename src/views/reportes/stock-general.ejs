@@ -16,15 +16,29 @@
         <i class="bi bi-download me-1"></i>Exportar
       </button>
       <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?formato=csv">CSV</a></li>
-        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?formato=xlsx">XLSX</a></li>
-        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?formato=dbf">DBF</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?<%= querystring ? `${querystring}&` : '' %>formato=csv">CSV</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?<%= querystring ? `${querystring}&` : '' %>formato=xlsx">XLSX</a></li>
+        <li><a class="dropdown-item" href="/reportes/stock-general/exportar?<%= querystring ? `${querystring}&` : '' %>formato=dbf">DBF</a></li>
       </ul>
     </div>
     <% } %>
     <button type="button" class="btn btn-outline-secondary" data-sicis-print>
       <i class="bi bi-printer me-1"></i>Imprimir
     </button>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3 d-print-none">
+  <div class="card-body py-3">
+    <form method="GET" action="/reportes/stock-general" class="d-flex flex-wrap align-items-center gap-3">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" name="agrupar_nivel_2" value="true" id="agruparNivel2" <%= filtros.agrupar_nivel_2 ? 'checked' : '' %>>
+        <label class="form-check-label fw-semibold" for="agruparNivel2">Agrupar depositos nivel 2</label>
+      </div>
+      <button type="submit" class="btn btn-warning btn-sm px-4">
+        <i class="bi bi-grid-3x3-gap me-1"></i>Actualizar
+      </button>
+    </form>
   </div>
 </div>
 
@@ -55,8 +69,11 @@
   <% } else { %>
     <div class="stock-general-summary d-print-none">
       <span><strong><%= depositos.length %></strong> depositos</span>
+      <% if (filtros.agrupar_nivel_2) { %>
+        <span><strong>N2</strong> agrupado</span>
+      <% } %>
       <span><strong><%= lotes.length %></strong> lotes</span>
-      <span><strong><%= totalGeneral.toFixed(3) %></strong> total general</span>
+      <span><strong><%= formatearNumero(totalGeneral, 3) %></strong> total general</span>
     </div>
 
     <div class="stock-matrix-wrap">
@@ -86,14 +103,14 @@
           <% filas.forEach(row => { %>
             <tr>
               <th class="stock-matrix-deposito">
-                <span class="stock-matrix-dep-name">N<%= row.deposito.nivel %> - <%= row.deposito.nombre %></span>
+                <span class="stock-matrix-dep-name stock-matrix-dep-level-<%= row.deposito.nivel %>">N<%= row.deposito.nivel %> - <%= row.deposito.nombre %></span>
               </th>
               <% row.celdas.forEach(value => { %>
                 <td class="stock-matrix-value <%= value > 0 ? 'has-stock' : '' %>">
-                  <%= value > 0 ? value.toFixed(3) : '-' %>
+                  <%= value > 0 ? formatearNumero(value, 3) : '-' %>
                 </td>
               <% }) %>
-              <td class="stock-matrix-row-total"><%= row.total.toFixed(3) %></td>
+              <td class="stock-matrix-row-total"><%= formatearNumero(row.total, 3) %></td>
             </tr>
           <% }) %>
         </tbody>
@@ -101,9 +118,9 @@
           <tr>
             <th>Total por lote</th>
             <% lotes.forEach(l => { %>
-              <th class="stock-matrix-col-total"><%= l.total_stock.toFixed(3) %></th>
+              <th class="stock-matrix-col-total"><%= formatearNumero(l.total_stock, 3) %></th>
             <% }) %>
-            <th class="stock-matrix-grand-total"><%= totalGeneral.toFixed(3) %></th>
+            <th class="stock-matrix-grand-total"><%= formatearNumero(totalGeneral, 3) %></th>
           </tr>
         </tfoot>
       </table>
